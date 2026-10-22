@@ -1,0 +1,15 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+dev-dist/
+
+# environment variables - real values are never committed (see .env.example)
+.env
+.env.*
+!.env.example
+
+# logs and editor files
+*.log
+.DS_Store
