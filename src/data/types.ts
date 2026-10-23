@@ -51,6 +51,12 @@ export interface DayRecord {
   end_odometer: number | null;
   status: DayStatus;
   locked: boolean;
+  /**
+   * Local-only flag set by the sync engine when a pulled merge left this
+   * day's leg chain broken (an odo_start that does not follow the previous
+   * odo_end). It is never sent to Supabase — the remote payload strips it.
+   */
+  needs_review?: boolean;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -80,6 +86,47 @@ export interface LegRecord {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+}
+
+/** The entities that sync between this device and Supabase. */
+export type SyncEntity = "profile" | "location" | "day" | "leg";
+
+/** What the sync engine should do with an outbox item's payload. */
+export type OutboxAction = "upsert" | "delete";
+
+/** Any syncable record, as stored in an outbox payload. */
+export type SyncableRecord = ProfileRecord | LocationRecord | DayRecord | LegRecord;
+
+/**
+ * One queued change for the sync engine. Written in the SAME Dexie
+ * transaction as the local change it describes, so a change can never be
+ * saved locally and then lost before it is queued. Items are replayed in
+ * insertion order (by the auto-increment id) and removed only after the
+ * server confirms them.
+ */
+export interface OutboxRecord {
+  /** Auto-increment local id; also the queue order. */
+  id?: number;
+  entity: SyncEntity;
+  /** The record's own id (user_id for the profile). */
+  entity_id: string;
+  action: OutboxAction;
+  /**
+   * The full record snapshot at queue time. For a "delete" the snapshot
+   * carries deleted_at: soft deletes propagate as upserts of that
+   * snapshot, never as hard deletes.
+   */
+  payload: SyncableRecord;
+  queued_at: string;
+  /** How many times the sync engine has tried and failed to send this. */
+  attempts: number;
+  last_error: string | null;
+}
+
+/** A single key/value row of small app state (sync watermarks, flags). */
+export interface MetaRecord {
+  key: string;
+  value: string;
 }
 
 /** Generate a client-side UUID for a new record. */

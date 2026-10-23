@@ -1,5 +1,8 @@
+import { useEffect } from "react";
 import { Route, Routes } from "react-router-dom";
+import { startSyncEngine } from "./data";
 import AuthProvider from "./features/auth/AuthProvider";
+import { requestPersistentStorage } from "./features/day/installState";
 import SignInPage from "./features/auth/SignInPage";
 import DayPage from "./features/day/DayPage";
 import DaySummaryPage from "./features/day/DaySummaryPage";
@@ -11,6 +14,14 @@ import TodayPage from "./features/day/TodayPage";
 import SettingsPage from "./features/settings/SettingsPage";
 
 export default function App() {
+  useEffect(() => {
+    // Sync triggers (app open, network return, every 60 s) and a request
+    // for persistent storage, so the browser keeps the local logs around.
+    const stopSync = startSyncEngine();
+    requestPersistentStorage();
+    return stopSync;
+  }, []);
+
   return (
     <AuthProvider>
       <Routes>

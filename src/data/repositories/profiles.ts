@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MileageDatabase } from "../db";
+import { enqueueChange } from "../outbox";
 import { newId, nowIso, type LocationRecord, type ProfileRecord } from "../types";
 import { createLocation, findLocationByType, updateLocation } from "./locations";
 
@@ -50,11 +51,16 @@ export async function upsertProfile(
     updated_at: now,
     deleted_at: null,
   };
-  await database.transaction("rw", database.profiles, async () => {
+  await database.transaction("rw", database.profiles, database.outbox, async () => {
     if (existing && existing.user_id !== input.user_id) {
+      // Re-keying to the signed-in user: the old row used a local-only id
+      // that can never exist on the server (profiles.user_id references
+      // auth.users), so there is nothing remote to delete — only the new
+      // row needs an outbox item.
       await database.profiles.delete(existing.user_id);
     }
     await database.profiles.put(record);
+    await enqueueChange(database, "profile", record);
   });
   return record;
 }

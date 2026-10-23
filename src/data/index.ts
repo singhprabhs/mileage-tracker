@@ -1,7 +1,34 @@
 export { MileageDatabase, db } from "./db";
 export { SUPABASE_NOT_CONFIGURED_MESSAGE, isSupabaseConfigured, supabase } from "./supabaseClient";
-export type { DayRecord, DayStatus, LegRecord, LocationRecord, ProfileRecord } from "./types";
+export type {
+  DayRecord,
+  DayStatus,
+  LegRecord,
+  LocationRecord,
+  MetaRecord,
+  OutboxAction,
+  OutboxRecord,
+  ProfileRecord,
+  SyncEntity,
+  SyncableRecord,
+} from "./types";
 export { newId, nowIso } from "./types";
+export {
+  countOutbox,
+  enqueueChange,
+  entityIdOf,
+  listOutbox,
+  pendingEntityKeys,
+  removeOutboxItem,
+  resetOutboxAttempts,
+  subscribeOutboxChanges,
+  updateOutboxItem,
+} from "./outbox";
+export { META_KEYS, getMetaValue, setMetaValue } from "./meta";
+export { SYNC_ENTITIES, SyncEngine, pendingChangeCount, toRemotePayload } from "./sync";
+export type { RemoteRow, RemoteStore, SyncEngineOptions, SyncState, SyncStatus } from "./sync";
+export { createSupabaseRemote } from "./supabaseRemote";
+export { getSyncEngine, retrySync, startSyncEngine, useSyncStatus } from "./syncRuntime";
 export {
   archiveLocation,
   createLocation,

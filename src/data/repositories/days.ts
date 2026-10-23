@@ -1,6 +1,7 @@
 import { computeLeg, periodTotals, type PeriodTotals } from "../../domain";
 import type { Leg } from "../../domain/types";
 import type { MileageDatabase } from "../db";
+import { enqueueChange } from "../outbox";
 import { newId, nowIso, type DayRecord, type LegRecord } from "../types";
 
 export interface CreateDayInput {
@@ -27,7 +28,10 @@ export async function createDay(
     updated_at: now,
     deleted_at: null,
   };
-  await database.days.add(record);
+  await database.transaction("rw", database.days, database.outbox, async () => {
+    await database.days.add(record);
+    await enqueueChange(database, "day", record);
+  });
   return record;
 }
 
@@ -53,7 +57,10 @@ export async function updateDay(
   const existing = await getDay(database, id);
   if (!existing) throw new Error(`Day ${id} not found`);
   const updated: DayRecord = { ...existing, ...changes, updated_at: nowIso() };
-  await database.days.put(updated);
+  await database.transaction("rw", database.days, database.outbox, async () => {
+    await database.days.put(updated);
+    await enqueueChange(database, "day", updated);
+  });
   return updated;
 }
 
@@ -101,7 +108,10 @@ export async function addLeg(
     updated_at: now,
     deleted_at: null,
   };
-  await database.legs.add(record);
+  await database.transaction("rw", database.legs, database.outbox, async () => {
+    await database.legs.add(record);
+    await enqueueChange(database, "leg", record);
+  });
   return record;
 }
 

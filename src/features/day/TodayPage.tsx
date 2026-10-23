@@ -11,7 +11,9 @@ import {
   toLocalDateString,
   type DayState,
 } from "./dayService";
+import InstallHint from "./InstallHint";
 import LegList from "./LegList";
+import SyncStatusBar from "./SyncStatusBar";
 import UndoSnackbar from "./UndoSnackbar";
 
 /**
@@ -76,6 +78,10 @@ export default function TodayPage() {
           ⚙
         </Link>
       </header>
+
+      <SyncStatusBar />
+
+      <InstallHint />
 
       <p className="today-date">
         {state ? (

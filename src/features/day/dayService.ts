@@ -8,6 +8,7 @@ import {
 } from "../../domain";
 import type { LocationType } from "../../domain/types";
 import type { MileageDatabase } from "../../data/db";
+import { enqueueChange } from "../../data/outbox";
 import { getDay, listDays, listLegsByDay, updateDay } from "../../data/repositories/days";
 import { createLocation, listLocations, updateLocation } from "../../data/repositories/locations";
 import { getProfile } from "../../data/repositories/profiles";
@@ -213,7 +214,10 @@ export async function startDay(
     updated_at: now,
     deleted_at: null,
   };
-  await database.days.add(record);
+  await database.transaction("rw", database.days, database.outbox, async () => {
+    await database.days.add(record);
+    await enqueueChange(database, "day", record);
+  });
   return { status: "created", day: record };
 }
 
@@ -381,7 +385,10 @@ export async function logStop(
     updated_at: now,
     deleted_at: null,
   };
-  await database.legs.add(record);
+  await database.transaction("rw", database.legs, database.outbox, async () => {
+    await database.legs.add(record);
+    await enqueueChange(database, "leg", record);
+  });
   await saveOrTouchLocation(database, context, destination);
   const next = await getDayState(database, context, dayId);
   return { status: "saved", state: next, leg: record };
@@ -431,12 +438,31 @@ export async function restoreDaySnapshot(
   database: MileageDatabase,
   snapshot: DaySnapshot,
 ): Promise<void> {
-  await database.transaction("rw", database.days, database.legs, async () => {
+  await database.transaction("rw", database.days, database.legs, database.outbox, async () => {
+    const current = await database.legs.where("day_id").equals(snapshot.day.id).toArray();
+    const snapshotIds = new Set(snapshot.legs.map((leg) => leg.id));
+    const now = nowIso();
     await database.legs.where("day_id").equals(snapshot.day.id).delete();
     if (snapshot.legs.length > 0) {
       await database.legs.bulkAdd(snapshot.legs.map((leg) => ({ ...leg })));
     }
     await database.days.put({ ...snapshot.day });
+    // Queue the restore like any other change: upserts for everything
+    // the snapshot brings back, soft deletes for live legs it removes.
+    for (const leg of snapshot.legs) {
+      await enqueueChange(database, "leg", leg);
+    }
+    for (const row of current) {
+      if (!snapshotIds.has(row.id) && row.deleted_at === null) {
+        await enqueueChange(
+          database,
+          "leg",
+          { ...row, deleted_at: now, updated_at: now },
+          "delete",
+        );
+      }
+    }
+    await enqueueChange(database, "day", snapshot.day);
   });
 }
 
@@ -460,7 +486,7 @@ async function replaceDayChain(
   const existingById = new Map(existing.map((row) => [row.id, row]));
   const now = nowIso();
 
-  await database.transaction("rw", database.legs, database.days, async () => {
+  await database.transaction("rw", database.legs, database.days, database.outbox, async () => {
     const keptIds = new Set<string>();
     for (const [index, computedLeg] of computed.entries()) {
       const wantedId = legIds[index] ?? null;
@@ -477,19 +503,24 @@ async function replaceDayChain(
       };
       keptIds.add(record.id);
       await database.legs.put(record);
+      await enqueueChange(database, "leg", record);
     }
     for (const row of existing) {
       if (!keptIds.has(row.id)) {
-        await database.legs.put({ ...row, deleted_at: now, updated_at: now });
+        const deleted: LegRecord = { ...row, deleted_at: now, updated_at: now };
+        await database.legs.put(deleted);
+        await enqueueChange(database, "leg", deleted, "delete");
       }
     }
     if (day.status === "closed") {
       const last = computed[computed.length - 1];
-      await database.days.put({
+      const updatedDay: DayRecord = {
         ...day,
         end_odometer: last ? last.odo_end : day.start_odometer,
         updated_at: now,
-      });
+      };
+      await database.days.put(updatedDay);
+      await enqueueChange(database, "day", updatedDay);
     }
   });
 

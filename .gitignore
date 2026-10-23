@@ -13,3 +13,7 @@ dev-dist/
 # logs and editor files
 *.log
 .DS_Store
+
+# playwright
+test-results/
+playwright-report/

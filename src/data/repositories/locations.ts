@@ -1,4 +1,5 @@
 import type { MileageDatabase } from "../db";
+import { enqueueChange } from "../outbox";
 import { newId, nowIso, type LocationRecord } from "../types";
 import type { LocationType } from "../../domain/types";
 
@@ -66,7 +67,10 @@ export async function createLocation(
     updated_at: now,
     deleted_at: null,
   };
-  await database.locations.add(record);
+  await database.transaction("rw", database.locations, database.outbox, async () => {
+    await database.locations.add(record);
+    await enqueueChange(database, "location", record);
+  });
   return record;
 }
 
@@ -78,7 +82,10 @@ export async function updateLocation(
   const existing = await getLocation(database, id);
   if (!existing) throw new Error(`Location ${id} not found`);
   const updated: LocationRecord = { ...existing, ...changes, updated_at: nowIso() };
-  await database.locations.put(updated);
+  await database.transaction("rw", database.locations, database.outbox, async () => {
+    await database.locations.put(updated);
+    await enqueueChange(database, "location", updated);
+  });
   return updated;
 }
 
@@ -90,7 +97,10 @@ export async function archiveLocation(
   const existing = await getLocation(database, id);
   if (!existing) throw new Error(`Location ${id} not found`);
   const updated: LocationRecord = { ...existing, archived: true, updated_at: nowIso() };
-  await database.locations.put(updated);
+  await database.transaction("rw", database.locations, database.outbox, async () => {
+    await database.locations.put(updated);
+    await enqueueChange(database, "location", updated);
+  });
   return updated;
 }
 
@@ -98,5 +108,10 @@ export async function archiveLocation(
 export async function deleteLocation(database: MileageDatabase, id: string): Promise<void> {
   const existing = await database.locations.get(id);
   if (!existing) return;
-  await database.locations.put({ ...existing, deleted_at: nowIso(), updated_at: nowIso() });
+  const now = nowIso();
+  const deleted: LocationRecord = { ...existing, deleted_at: now, updated_at: now };
+  await database.transaction("rw", database.locations, database.outbox, async () => {
+    await database.locations.put(deleted);
+    await enqueueChange(database, "location", deleted, "delete");
+  });
 }

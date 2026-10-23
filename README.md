@@ -27,8 +27,16 @@ End Day screens, address autocomplete with a manual-entry fallback,
 leg editing with insert-a-missed-stop and 10-second Undo, and the
 parking row. See the Phase 3 section below.
 
-Offline/sync (Phase 4), history and reports (Phase 5), and final
-deployment polish (Phase 6) come in later phases.
+Phase 4 (offline and sync) is built: every local write also lands in a
+Dexie outbox in the same transaction, and a sync engine replays the
+queue to Supabase (idempotent upserts), pulls newer server rows back
+with last-write-wins, and shows Synced / Pending / Offline on Today.
+The app shell is cached by the service worker so it opens with no
+signal, and a one-time hint explains Add to Home Screen. See the
+Phase 4 section below.
+
+History and reports (Phase 5) and final deployment polish (Phase 6)
+come in later phases.
 
 ## Setup
 
@@ -85,8 +93,8 @@ sign-in and the account backup of the profile.
 
 Free Supabase projects pause after 7 days with no requests. A paused
 project can be resumed in the dashboard with one click and no data is
-lost; the scheduled keep-alive workflow arrives with the sync work in
-Phase 4.
+lost; the scheduled keep-alive workflow is described in the Phase 4
+section below.
 
 ## Phase 3: daily logging and the Geoapify key
 
@@ -119,6 +127,57 @@ Without a key — or offline — address search simply reports itself
 unavailable and the Log Stop screen falls back to typing the place
 name and full address, which works completely on its own.
 
+## Phase 4: offline and sync
+
+The phone is the source of truth while you work; the server is a
+backup and a way to reach the data from another device.
+
+- **Offline first.** Every create, edit and delete is written to
+  IndexedDB (Dexie) immediately and the screens read from there. The
+  service worker caches the app shell, so the app opens with no
+  signal; address search is the only feature that needs a connection,
+  and it falls back to manual entry. Signing in is only needed once —
+  the session is kept on the device, so an offline reload never signs
+  you out.
+- **Outbox.** Each local change also writes one item to the outbox
+  table in the same database transaction, carrying the record type,
+  its id, and a full snapshot. The sync engine sends items oldest
+  first whenever the app opens, when the network returns, shortly
+  after each new change, and every 60 seconds while the app is open.
+  An item is removed only after the server confirms it. Writes are
+  upserts by client-generated UUID, so a retried item can never create
+  a duplicate; soft deletes travel as the snapshot with `deleted_at`
+  set, never as hard deletes.
+- **Pull and conflicts.** After pushing, the engine fetches rows
+  changed since the last sync and merges them, last-write-wins by
+  `updated_at` — except a record that still has a pending outbox item,
+  which is never overwritten until its change has been pushed. After a
+  day's legs merge, the leg chain is re-checked; if a reading no
+  longer follows the previous one, the day is flagged for review on
+  the device instead of being silently merged into a broken chain.
+- **Sync status.** Today shows **Synced**, **Pending (n changes)**,
+  or **Offline**. If one change fails three times it stays queued and
+  Today shows the error with a **Retry** button — sync never fails
+  silently. Signed out (or with Supabase not configured) it honestly
+  says the data is on this device only.
+- **Install hint.** When the app opens in a normal browser tab (not
+  installed), a one-time banner explains Share → Add to Home Screen.
+  On iPhone this matters: Safari can clear a plain tab's stored data
+  after 7 days without use, but not an installed web app's. The app
+  also asks the browser for persistent storage on start.
+- **Backup reminder.** Settings gains Export / Import backup (a JSON
+  file of all data) in a later phase; once it is there, the app will
+  gently remind once a week to save a backup.
+- **Keep-alive (do this once).** Free Supabase projects pause after 7
+  days with no requests. Copy `docs/keepalive-workflow.yml` to
+  `.github/workflows/keepalive.yml` in the repository (it lives under
+  `docs/` because the automation account for this repo cannot create
+  workflow files). The scheduled workflow makes one small request to
+  the project every 3 days using the repository variables
+  `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`, and fails loudly if
+  the project does not respond. If the project ever does pause, resume
+  it from the Supabase dashboard with one click — no data is lost.
+
 ## Scripts
 
 | Script               | What it does                            |
@@ -129,6 +188,8 @@ name and full address, which works completely on its own.
 | `npm run lint`       | ESLint                                  |
 | `npm run test`       | Run the Vitest unit tests once          |
 | `npm run test:watch` | Run the Vitest unit tests in watch mode |
+| `npm run test:e2e`   | Build, then run the Playwright e2e test |
+| `npm run preview`    | Serve the production build locally      |
 
 ## Tests
 
@@ -147,21 +208,40 @@ while an earlier day is open, chain recalculation after edit / delete
 / insert, Undo restoral, and the parking rules.
 `tests/addressSearch.test.ts` covers the Geoapify client with a
 stubbed fetch: mapping, the 3-character minimum, caching, debounce,
-and the unavailable signal on failure.
+and the unavailable signal on failure. `tests/sync.test.ts` drives
+the sync engine against an in-memory fake remote: a full Fixture A
+day logged while the remote is down survives a database reload and
+then syncs exactly once (and a second sync duplicates nothing), push
+failures preserve queue order and surface after three attempts until
+Retry, pull merges are last-write-wins and never overwrite a pending
+local change, a merge that breaks a day's leg chain flags the day for
+review, and the v1 → v2 schema migration keeps existing data.
 
 ```sh
 npm run test
+```
+
+End-to-end: `tests-e2e/offline.spec.ts` (Playwright, mobile viewport)
+loads the production build, seeds a profile into the app's IndexedDB,
+then reloads in airplane mode (`context.setOffline`) and checks the
+shell and the locally saved state still render. One-time setup:
+`npx playwright install chromium`. It is kept out of the Vitest run.
+
+```sh
+npm run test:e2e
 ```
 
 ## Repository layout
 
 ```text
 src/domain    pure logic: claimable, odometer completion, totals (no UI, no I/O)
-src/data      Dexie schema and repositories, Supabase client
+src/data      Dexie schema and repositories, outbox, sync engine, Supabase client
 src/features  auth, settings, day (Today/Start/Log/End/edit), stops (address search)
 src/ui        shared components and styles
 supabase/     SQL migrations and row-level security policies
 tests/        unit tests and fixtures
+tests-e2e/    Playwright end-to-end tests
+docs/         keepalive workflow source (copied to .github/workflows/ by hand)
 ```
 
 ## Deploy (later phase)
@@ -172,5 +252,5 @@ every push to `main`. The Vite base path is already set to
 
 Note on Supabase: free projects pause after 7 days with no requests. A
 paused project can be resumed in the Supabase dashboard with one click
-and no data is lost. A scheduled keep-alive workflow is added with the
-sync work in Phase 4.
+and no data is lost. The scheduled keep-alive workflow that prevents
+the pause is described in the Phase 4 section above.
