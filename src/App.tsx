@@ -11,6 +11,7 @@ import InsertStopPage from "./features/day/InsertStopPage";
 import LogStopPage from "./features/day/LogStopPage";
 import StartDayPage from "./features/day/StartDayPage";
 import TodayPage from "./features/day/TodayPage";
+import HistoryPage from "./features/history/HistoryPage";
 import SettingsPage from "./features/settings/SettingsPage";
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/day/:dayId/summary" element={<DaySummaryPage />} />
         <Route path="/day/:dayId/legs/:legId/edit" element={<EditLegPage />} />
         <Route path="/day/:dayId/insert-after/:legId" element={<InsertStopPage />} />
+        <Route path="/history" element={<HistoryPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/signin" element={<SignInPage />} />
       </Routes>

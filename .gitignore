@@ -17,3 +17,6 @@ dev-dist/
 # playwright
 test-results/
 playwright-report/
+
+# PWA icons are generated at build time from assets/icons/*.b64
+public/pwa-*.png

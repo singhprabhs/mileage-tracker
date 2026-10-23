@@ -16,6 +16,8 @@ export const META_KEYS = {
   backfillV2CompletedAt: "backfillV2CompletedAt",
   /** ISO timestamp of the last weekly backup reminder (Phase 5 feature). */
   backupReminderAt: "backupReminderAt",
+  /** ISO timestamp of the last JSON backup export from Settings. */
+  lastExportAt: "lastExportAt",
   /** "1" once the user has dismissed the Add to Home Screen hint. */
   installHintDismissed: "installHintDismissed",
 } as const;

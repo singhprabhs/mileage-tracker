@@ -25,6 +25,18 @@ export {
   updateOutboxItem,
 } from "./outbox";
 export { META_KEYS, getMetaValue, setMetaValue } from "./meta";
+export {
+  BACKUP_FORMAT,
+  BACKUP_VERSION,
+  collectBackup,
+  getLastBackupExportAt,
+  importBackup,
+  isBackupReminderDue,
+  parseBackup,
+  recordBackupExported,
+  serializeBackup,
+} from "./backup";
+export type { BackupData, BackupFile } from "./backup";
 export { SYNC_ENTITIES, SyncEngine, pendingChangeCount, toRemotePayload } from "./sync";
 export type { RemoteRow, RemoteStore, SyncEngineOptions, SyncState, SyncStatus } from "./sync";
 export { createSupabaseRemote } from "./supabaseRemote";

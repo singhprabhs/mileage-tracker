@@ -172,6 +172,9 @@ export default function TodayPage() {
       ) : null}
 
       <footer className="today-footer">
+        <p>
+          <Link to="/history">History and reports</Link>
+        </p>
         {session ? (
           <p>
             Signed in as <strong>{session.user.email ?? "your account"}</strong>.
