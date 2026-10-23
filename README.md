@@ -22,8 +22,13 @@ Settings / first-launch profile form. The profile is saved on the device
 first and read back after reload; see the Phase 2 setup below for the
 one-time Supabase project steps.
 
-Daily logging screens (Phase 3), offline/sync (Phase 4), history and
-reports (Phase 5), and deployment (Phase 6) come in later phases.
+Phase 3 (daily logging) is built: the Today / Start Day / Log Stop /
+End Day screens, address autocomplete with a manual-entry fallback,
+leg editing with insert-a-missed-stop and 10-second Undo, and the
+parking row. See the Phase 3 section below.
+
+Offline/sync (Phase 4), history and reports (Phase 5), and final
+deployment polish (Phase 6) come in later phases.
 
 ## Setup
 
@@ -83,6 +88,37 @@ project can be resumed in the dashboard with one click and no data is
 lost; the scheduled keep-alive workflow arrives with the sync work in
 Phase 4.
 
+## Phase 3: daily logging and the Geoapify key
+
+The day flow is local-first, like everything else: Start Day at Home,
+Log Stop at each arrival (the odometer field accepts just the last
+digits and shows the completed reading before you save), and End Day
+back Home, then confirm the summary to close the day. Any leg can be
+edited or deleted, and a missed stop can be inserted — every change
+recalculates the day's chain, and Undo is offered for 10 seconds after
+a save or delete. Parking paid at a stop is recorded from the
+collapsed "Parking paid" row on the Log Stop and Edit Leg screens.
+
+Address suggestions come from Geoapify Address Autocomplete (free
+plan, no credit card):
+
+1. Create a free account at https://www.geoapify.com and an API key in
+   a project. The free plan allows 3,000 credits per day; the app
+   debounces typing, only searches from 3 characters, and caches
+   results to stay well inside that.
+2. Put the key in `.env` as `VITE_GEOAPIFY_API_KEY` for local
+   development. For the deployed GitHub Pages build, add the same value
+   as the repository **Actions variable** `VITE_GEOAPIFY_API_KEY`
+   (Settings → Secrets and variables → Actions → Variables) — the
+   deploy workflow already forwards it.
+3. In the Geoapify dashboard, restrict the key to the app's domain
+   (`singhprabhs.github.io`) if the dashboard offers domain
+   restriction, so the public key can only be used from the app.
+
+Without a key — or offline — address search simply reports itself
+unavailable and the Log Stop screen falls back to typing the place
+name and full address, which works completely on its own.
+
 ## Scripts
 
 | Script               | What it does                            |
@@ -103,7 +139,15 @@ warning checks, chain recalculation after edits, and the parking rules
 covers the Phase 2 Dexie repositories against a fake IndexedDB:
 profile save and reload persistence, Home/Office location maintenance,
 location CRUD and archiving, and a day with the Fixture A legs read
-back with the correct totals.
+back with the correct totals. `tests/dayService.test.ts` drives the
+whole Jul 02 sample day (Fixture A, with Fixture C parking) through
+the Phase 3 day service — Start Day, each Log Stop, End Day — and
+checks the 85 km / 36 km claimable result, the blocked Start Day
+while an earlier day is open, chain recalculation after edit / delete
+/ insert, Undo restoral, and the parking rules.
+`tests/addressSearch.test.ts` covers the Geoapify client with a
+stubbed fetch: mapping, the 3-character minimum, caching, debounce,
+and the unavailable signal on failure.
 
 ```sh
 npm run test
@@ -114,7 +158,7 @@ npm run test
 ```text
 src/domain    pure logic: claimable, odometer completion, totals (no UI, no I/O)
 src/data      Dexie schema and repositories, Supabase client
-src/features  auth, settings, home (day/stops/history/reports arrive in Phase 3+)
+src/features  auth, settings, day (Today/Start/Log/End/edit), stops (address search)
 src/ui        shared components and styles
 supabase/     SQL migrations and row-level security policies
 tests/        unit tests and fixtures
