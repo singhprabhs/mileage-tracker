@@ -4,7 +4,7 @@ import { db } from "../../data";
 import { formatParking } from "../../domain";
 import {
   closeDayAfterSummary,
-  formatDateLabel,
+  formatFullDateLabel,
   getDayState,
   loadDayContext,
   type DayState,
@@ -62,7 +62,7 @@ export default function DaySummaryPage() {
     <main className="app-shell">
       <h1>Day summary</h1>
       <p className="today-date">
-        {formatDateLabel(state.day.date)} · {state.day.date}
+        {formatFullDateLabel(state.day.date)}
       </p>
       <dl className="stats-grid">
         <div>

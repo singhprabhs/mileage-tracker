@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { db } from "../../data";
 import {
   formatDateLabel,
+  formatFullDateLabel,
   getLastClosedDayFinalOdometer,
   getOpenDayState,
   loadDayContext,
@@ -85,7 +86,7 @@ export default function StartDayPage() {
       </p>
       <h1>Start Day</h1>
       <p className="today-date">
-        {formatDateLabel(today)} · {today}
+        {formatFullDateLabel(today)}
       </p>
 
       {openDay ? (

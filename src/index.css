@@ -36,6 +36,18 @@ a {
   color: inherit;
 }
 
+/* Keyboard focus must stay visible in both colour schemes. */
+:focus-visible {
+  outline: 3px solid #0f4c81;
+  outline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :focus-visible {
+    outline-color: #8ecbff;
+  }
+}
+
 /* Forms: mobile first, touch targets at least 48px. */
 .field {
   margin: 0 0 16px;
@@ -131,6 +143,10 @@ a {
   flex-shrink: 0;
   min-height: 48px;
   min-width: 48px;
+  /* .button is width: 100% for stacked actions; inside this flex row
+     that made the dismiss button claim the whole hint, squeezing the
+     text into a sliver and bursting the notice border. */
+  width: auto;
 }
 
 .account-section {
@@ -237,6 +253,16 @@ a {
 .button-danger {
   border-color: #b3261e;
   color: #b3261e;
+}
+
+/* The light-scheme danger red is only ~3:1 on a dark background; this
+   tint keeps the same meaning at AA contrast. (Placed after the base
+   rule so it wins the cascade at equal specificity.) */
+@media (prefers-color-scheme: dark) {
+  .button-danger {
+    border-color: #f2b8b5;
+    color: #f2b8b5;
+  }
 }
 
 .big-number-input {
@@ -431,8 +457,12 @@ a {
   /* minmax(0, …) plus min-width: 0 below: native date inputs have an
      intrinsic minimum width that otherwise forces the tracks wider
      than the screen on iOS, squeezing the second field into a sliver
-     that overlaps the first. */
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+     that overlaps the first. The 9.5rem minimum is in rem on purpose:
+     it grows with the text size, so when large system text makes a
+     half-screen date field too narrow for its own value (the native
+     control clips the year), the pair stacks full-width instead. At
+     the default text size two columns fit on every phone width. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
 }
 
 .date-range .field {

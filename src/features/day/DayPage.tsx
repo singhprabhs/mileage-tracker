@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { db } from "../../data";
 import { formatParking } from "../../domain";
-import { formatDateLabel, getDayState, loadDayContext, type DayState } from "./dayService";
+import { formatFullDateLabel, getDayState, loadDayContext, type DayState } from "./dayService";
 import UndoSnackbar from "./UndoSnackbar";
 
 /**
@@ -46,7 +46,7 @@ export default function DayPage() {
         <Link to="/">← Today</Link>
       </p>
       <h1>
-        {formatDateLabel(state.day.date)} · {state.day.date}
+        {formatFullDateLabel(state.day.date)}
       </h1>
       <dl className="stats-grid">
         <div>

@@ -4,7 +4,7 @@ import { db } from "../../data";
 import { formatParking } from "../../domain";
 import { useAuth } from "../auth/authContext";
 import {
-  formatDateLabel,
+  formatFullDateLabel,
   getClosedDayStateForDate,
   getOpenDayState,
   loadDayContext,
@@ -86,13 +86,11 @@ export default function TodayPage() {
       <p className="today-date">
         {state ? (
           <>
-            {formatDateLabel(state.day.date)} · {state.day.date}
+            {formatFullDateLabel(state.day.date)}
             {state.day.date !== today ? " — this day is still open" : ""}
           </>
         ) : (
-          <>
-            {formatDateLabel(today)} · {today}
-          </>
+          <>{formatFullDateLabel(today)}</>
         )}
       </p>
 
