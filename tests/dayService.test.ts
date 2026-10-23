@@ -9,6 +9,7 @@ import {
   deleteLeg,
   editLeg,
   endDay,
+  formatFullDateLabel,
   getLastClosedDayFinalOdometer,
   getOpenDayState,
   insertLeg,
@@ -265,5 +266,15 @@ describe("day service: parking rules", () => {
     expect(saved.leg.parking_cents).toBe(15000);
     expect(saved.state.totals.totalParkingCents).toBe(15000);
     await database.delete();
+  });
+});
+
+describe("formatFullDateLabel", () => {
+  it("renders one date with the correct weekday", () => {
+    expect(formatFullDateLabel("2026-07-02")).toBe("Thu, Jul 02, 2026");
+    expect(formatFullDateLabel("2026-07-03")).toBe("Fri, Jul 03, 2026");
+    expect(formatFullDateLabel("2026-10-22")).toBe("Thu, Oct 22, 2026");
+    expect(formatFullDateLabel("2026-10-23")).toBe("Fri, Oct 23, 2026");
+    expect(formatFullDateLabel("2026-01-01")).toBe("Thu, Jan 01, 2026");
   });
 });

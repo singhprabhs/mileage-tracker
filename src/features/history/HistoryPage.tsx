@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { db } from "../../data";
 import { formatParking } from "../../domain";
-import { formatDateLabel, loadDayContext } from "../day/dayService";
+import { formatFullDateLabel, loadDayContext } from "../day/dayService";
 import {
   currentMonthRange,
   loadHistory,
@@ -192,7 +192,7 @@ export default function HistoryPage() {
             <li key={day.id} className="leg-detail">
               <Link className="history-day-link" to={`/day/${day.id}`}>
                 <span className="leg-route">
-                  {formatDateLabel(day.date)} · {day.date}
+                  {formatFullDateLabel(day.date)}
                   {day.status === "open" ? " (still open)" : ""}
                 </span>
                 <span className="leg-meta">

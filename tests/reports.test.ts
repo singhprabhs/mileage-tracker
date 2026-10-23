@@ -10,7 +10,13 @@ import {
   reportFileName,
 } from "../src/features/reports/reportModel";
 import { buildReportCsv } from "../src/features/reports/reportCsv";
-import { buildPdfTableData, buildReportPdf } from "../src/features/reports/reportPdf";
+import { jsPDF } from "jspdf";
+import {
+  buildPdfTableData,
+  buildReportPdf,
+  computePdfHeaderLayout,
+  pdfColumnWidths,
+} from "../src/features/reports/reportPdf";
 import {
   buildReportWorkbook,
   dateFromYmd,
@@ -212,6 +218,62 @@ describe("parking in reports (Fixture C)", () => {
     const bytes = new Uint8Array(doc.output("arraybuffer"));
     expect(bytes.length).toBeGreaterThan(1500);
     expect(String.fromCharCode(...bytes.slice(0, 4))).toBe("%PDF");
+  });
+});
+
+describe("PDF header geometry", () => {
+  function measure(text: string, fontSize: number, bold: boolean): number {
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setFontSize(fontSize);
+    return doc.getTextWidth(text);
+  }
+
+  it("sizes every header column from the measured text, so nothing can overlap", async () => {
+    const database = freshDb();
+    await seedFixtureC(database);
+    const model = await loadReportModel(database, "2026-07-02", "2026-07-02");
+    expect(model).not.toBeNull();
+    if (!model) return;
+
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
+    const layout = computePdfHeaderLayout(doc, model);
+    const size = layout.fontSize;
+
+    // Anchored to the right margin; the three columns are contiguous.
+    expect(layout.valueX + layout.valueWidth).toBeCloseTo(layout.right, 6);
+    expect(layout.right).toBe(792 - 30);
+    expect(layout.labelX + layout.labelWidth).toBeCloseTo(layout.valueX, 6);
+    expect(layout.dateX + layout.dateWidth).toBeCloseTo(layout.labelX, 6);
+    // The block leaves the left Name/Tech ID area clear.
+    expect(layout.dateX).toBeGreaterThan(300);
+
+    // Each cell fits the text drawn in it at the chosen font size.
+    expect(layout.labelWidth).toBeGreaterThanOrEqual(measure("ODOMETER START", size, true));
+    expect(layout.labelWidth).toBeGreaterThanOrEqual(measure("ODOMETER END", size, true));
+    expect(layout.dateWidth).toBeGreaterThanOrEqual(measure(model.periodStart, size, true));
+    expect(layout.dateWidth).toBeGreaterThanOrEqual(measure(model.periodEnd, size, true));
+    expect(layout.valueWidth).toBeGreaterThanOrEqual(measure(String(model.odometerStart), size, true));
+    expect(layout.valueWidth).toBeGreaterThanOrEqual(measure(String(model.odometerEnd), size, true));
+
+    // The widest labels are centred over the date+label span: the span
+    // must fit them, or they would spill onto the value.
+    const span = layout.dateWidth + layout.labelWidth;
+    expect(span).toBeGreaterThanOrEqual(measure("DISTANCE HOME - OFFICE (KM)", size, true));
+    expect(span).toBeGreaterThanOrEqual(measure("Total Claimable Mileage (KM):", size, false));
+    expect(span).toBeGreaterThanOrEqual(measure("Total Parking ($):", size, false));
+  });
+
+  it("fits the Claimable header on one line at the table font", () => {
+    // Autotable head: helvetica bold 9 pt, cellPadding 3.5 each side.
+    const needed = measure("Claimable", 9, true) + 2 * 3.5;
+    for (const hasParking of [false, true]) {
+      const widths = pdfColumnWidths(hasParking);
+      // Claimable is column index 8 in both layouts.
+      expect(widths[8]).toBeGreaterThanOrEqual(needed);
+      // The table always spans exactly the content width.
+      expect(widths.reduce((a, b) => a + b, 0)).toBe(732);
+    }
   });
 });
 

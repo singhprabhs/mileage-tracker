@@ -91,6 +91,22 @@ export function formatDateLabel(isoDate: string): string {
   return `${month} ${parts[2] ?? ""}`;
 }
 
+const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/**
+ * "Thu, Jul 02, 2026" style label: the single date rendering used on
+ * History day rows. The weekday is computed from the calendar date in
+ * UTC so it can never shift with the local timezone.
+ */
+export function formatFullDateLabel(isoDate: string): string {
+  const parts = isoDate.split("-").map(Number);
+  const year = parts[0] ?? 0;
+  const month = parts[1] ?? 1;
+  const day = parts[2] ?? 1;
+  const weekday = WEEKDAY_NAMES[new Date(Date.UTC(year, month - 1, day)).getUTCDay()] ?? "";
+  return `${weekday}, ${formatDateLabel(isoDate)}, ${year}`;
+}
+
 /**
  * Load everything the day flow needs: the saved profile, and the Home and
  * Office destinations, which come from the profile as the brief requires.

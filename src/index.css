@@ -428,12 +428,21 @@ a {
 .date-range {
   display: grid;
   gap: 12px;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, …) plus min-width: 0 below: native date inputs have an
+     intrinsic minimum width that otherwise forces the tracks wider
+     than the screen on iOS, squeezing the second field into a sliver
+     that overlaps the first. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.date-range .field {
+  min-width: 0;
 }
 
 .date-range input {
   font: inherit;
   min-height: 48px;
+  min-width: 0;
   padding: 10px 12px;
   width: 100%;
   border: 1px solid currentColor;
