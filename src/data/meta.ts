@@ -6,6 +6,14 @@ export const META_KEYS = {
   lastPulledAt: "lastPulledAt",
   /** ISO timestamp of the last completed sync run. */
   lastSyncAt: "lastSyncAt",
+  /**
+   * ISO timestamp of the one-time backfill scan (sync fix): the first
+   * sync run after the outbox existed for pre-existing local data
+   * enqueues an upsert for every local record that has no pending item,
+   * so records created before the outbox (or otherwise missed) reach the
+   * server. Set once; later runs use the watermark rule instead.
+   */
+  backfillV2CompletedAt: "backfillV2CompletedAt",
   /** ISO timestamp of the last weekly backup reminder (Phase 5 feature). */
   backupReminderAt: "backupReminderAt",
   /** "1" once the user has dismissed the Add to Home Screen hint. */

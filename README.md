@@ -141,12 +141,18 @@ backup and a way to reach the data from another device.
   you out.
 - **Outbox.** Each local change also writes one item to the outbox
   table in the same database transaction, carrying the record type,
-  its id, and a full snapshot. The sync engine sends items oldest
-  first whenever the app opens, when the network returns, shortly
-  after each new change, and every 60 seconds while the app is open.
-  An item is removed only after the server confirms it. Writes are
-  upserts by client-generated UUID, so a retried item can never create
-  a duplicate; soft deletes travel as the snapshot with `deleted_at`
+  its id, and a full snapshot. The sync engine sends items whenever
+  the app opens, when the network returns, shortly after each new
+  change, and every 60 seconds while the app is open — in dependency
+  order (locations, then profiles, then days, then legs), because the
+  server enforces foreign keys and a leg must never arrive before its
+  day. Before pushing, each run backfills: any local record that has
+  no queued change but might not be on the server yet (for example
+  data created before the outbox existed) is queued with its current
+  snapshot, so its children's changes can succeed. An item is removed
+  only after the server confirms it. Writes are upserts by
+  client-generated UUID, so a retried item can never create a
+  duplicate; soft deletes travel as the snapshot with `deleted_at`
   set, never as hard deletes.
 - **Pull and conflicts.** After pushing, the engine fetches rows
   changed since the last sync and merges them, last-write-wins by
@@ -156,8 +162,11 @@ backup and a way to reach the data from another device.
   longer follows the previous one, the day is flagged for review on
   the device instead of being silently merged into a broken chain.
 - **Sync status.** Today shows **Synced**, **Pending (n changes)**,
-  or **Offline**. If one change fails three times it stays queued and
-  Today shows the error with a **Retry** button — sync never fails
+  or **Offline**. A change that keeps failing blocks only its own
+  record and the records that depend on it (a profile waits on its
+  Office location; legs wait on their day) — everything else keeps
+  syncing. If one change fails three times it stays queued and Today
+  shows the error with a **Retry** button — sync never fails
   silently. Signed out (or with Supabase not configured) it honestly
   says the data is on this device only.
 - **Install hint.** When the app opens in a normal browser tab (not
@@ -212,10 +221,16 @@ and the unavailable signal on failure. `tests/sync.test.ts` drives
 the sync engine against an in-memory fake remote: a full Fixture A
 day logged while the remote is down survives a database reload and
 then syncs exactly once (and a second sync duplicates nothing), push
-failures preserve queue order and surface after three attempts until
-Retry, pull merges are last-write-wins and never overwrite a pending
-local change, a merge that breaks a day's leg chain flags the day for
-review, and the v1 → v2 schema migration keeps existing data.
+failures are contained to their own record chain and surface after
+three attempts until Retry, pull merges are last-write-wins and
+never overwrite a pending local change, a merge that breaks a day's
+leg chain flags the day for review, and the v1 → v2 schema migration
+keeps existing data. The fake remote enforces the server's foreign
+keys, and a regression suite covers the production deadlock it
+caused: a day created before the outbox existed, edited afterwards,
+now syncs fully via backfill and dependency-ordered push, a locked
+item no longer blocks unrelated records, and a queue stuck on a
+foreign-key lock recovers on the next app load.
 
 ```sh
 npm run test

@@ -7,7 +7,13 @@ import { listOutbox } from "../src/data/outbox";
 import { listLegsByDay } from "../src/data/repositories/days";
 import { getProfile, saveProfileWithLocations } from "../src/data/repositories/profiles";
 import { SyncEngine, type RemoteRow, type RemoteStore } from "../src/data/sync";
-import type { SyncEntity } from "../src/data/types";
+import type {
+  DayRecord,
+  LegRecord,
+  LocationRecord,
+  ProfileRecord,
+  SyncEntity,
+} from "../src/data/types";
 import { periodTotals } from "../src/domain";
 import {
   closeDayAfterSummary,
@@ -41,7 +47,13 @@ const AGAT: StopDestination = {
   type: "customer",
 };
 
-/** In-memory RemoteStore: the "server" for sync tests. No network. */
+/**
+ * In-memory RemoteStore: the "server" for sync tests. No network.
+ * It ENFORCES the server's foreign keys (legs.day_id → days,
+ * profiles.office_location_id → locations) with the same error text
+ * Postgres produces, so a push that sends a child before its parent
+ * fails here exactly like it did in production.
+ */
 class FakeRemote implements RemoteStore {
   readonly rows: Record<SyncEntity, Map<string, RemoteRow>> = {
     profile: new Map(),
@@ -60,6 +72,22 @@ class FakeRemote implements RemoteStore {
     this.upsertCalls.push({ entity, id });
     if (this.down || this.failEntities.has(entity) || this.upsertCalls.length === this.failAtCall) {
       throw new Error(`remote unavailable (${entity})`);
+    }
+    if (entity === "leg" && !this.rows.day.has(String(payload.day_id))) {
+      throw new Error(
+        'insert or update on table "legs" violates foreign key constraint "legs_day_id_fkey"',
+      );
+    }
+    if (
+      entity === "profile" &&
+      typeof payload.office_location_id === "string" &&
+      payload.office_location_id !== "" &&
+      !this.rows.location.has(payload.office_location_id)
+    ) {
+      throw new Error(
+        'insert or update on table "profiles" violates foreign key constraint ' +
+          '"profiles_office_location_id_fk"',
+      );
     }
     this.rows[entity].set(id, { ...payload } as RemoteRow);
   }
@@ -212,23 +240,29 @@ describe("sync engine: the Phase 4 Done-when scenario", () => {
 });
 
 describe("sync engine: push failures", () => {
-  it("stops at the failed item, preserves order, and increments attempts", async () => {
+  it("a failed item blocks only its own chain: dependents are skipped unattempted", async () => {
+    // Semantics changed by the sync fix: a failure no longer stops the
+    // whole queue — it blocks later items for the same record and items
+    // that depend on it. Here the Office location fails, so the profile
+    // (whose office_location_id points at it) must not be attempted,
+    // while the independent Home location already landed.
     const database = new MileageDatabase(freshName());
     await setupProfile(database);
     const remote = new FakeRemote();
-    remote.failAtCall = 2; // The second queued change (Office location) fails.
+    remote.failAtCall = 2; // The second push (Office location) fails.
     const engine = makeEngine(database, remote);
 
     const status = await engine.runSync();
     expect(status.state).toBe("pending");
     expect(status.lastError).toContain("remote unavailable");
     expect(remote.count("location")).toBe(1); // Only the Home location landed.
+    expect(remote.count("profile")).toBe(0); // Dependent of the failure: not sent.
 
     const items = await listOutbox(database);
     expect(items).toHaveLength(2);
     expect(items[0]?.attempts).toBe(1);
     expect(items[0]?.last_error).toContain("remote unavailable");
-    expect(items[1]?.attempts).toBe(0); // Never attempted: order preserved.
+    expect(items[1]?.attempts).toBe(0); // Skipped this run, never attempted.
     await database.delete();
   });
 
@@ -245,7 +279,12 @@ describe("sync engine: push failures", () => {
     expect(third.state).toBe("error");
     expect(third.lastError).toContain("remote unavailable");
     const lockedItems = await listOutbox(database);
+    // Each location is attempted once per run (failures are per-record
+    // now, so the independent Office location locks on its own three
+    // failures too); the profile was skipped every run as a dependent.
     expect(lockedItems[0]?.attempts).toBe(3);
+    expect(lockedItems[1]?.attempts).toBe(3);
+    expect(lockedItems[2]?.attempts).toBe(0);
 
     // A locked item is not hammered by further automatic runs.
     await engine.runSync();
@@ -405,6 +444,310 @@ describe("sync engine: pull merges", () => {
     await engine.runSync();
     const healedDay = await database.days.get(dayId);
     expect(healedDay?.needs_review).toBeFalsy();
+    await database.delete();
+  });
+});
+
+/**
+ * The reported production bug, reproduced: profile, locations and a
+ * Fixture A day written straight into the Dexie tables with NO outbox
+ * entries — data created by the Phase 3 app (Dexie v1) before the
+ * outbox existed. Phase 4 code then edits the day, queueing only the
+ * new leg (and the day-close), so under the old push the leg reached
+ * the server before — or entirely without — its day.
+ */
+const SEED_TIME = "2026-07-02T08:00:00.000Z";
+const HOME_LOC_ID = "11111111-1111-4111-8111-111111111111";
+const OFFICE_LOC_ID = "22222222-2222-4222-8222-222222222222";
+const DSK_LOC_ID = "44444444-4444-4444-8444-444444444444";
+const AGAT_LOC_ID = "55555555-5555-4555-8555-555555555555";
+const SEED_DAY_ID = "66666666-6666-4666-8666-666666666666";
+const FK_ERROR =
+  'insert or update on table "legs" violates foreign key constraint "legs_day_id_fkey"';
+
+function seedLocation(id: string, name: string, address: string, type: LocationRecord["type"]) {
+  return {
+    id,
+    user_id: USER_ID,
+    name,
+    address,
+    place_id: null,
+    lat: null,
+    lng: null,
+    type,
+    last_used_at: SEED_TIME,
+    archived: false,
+    created_at: SEED_TIME,
+    updated_at: SEED_TIME,
+    deleted_at: null,
+  } satisfies LocationRecord;
+}
+
+function seedLeg(
+  id: string,
+  position: number,
+  from: [string, string, LegRecord["from_type"]],
+  to: [string, string, LegRecord["to_type"]],
+  odoStart: number,
+  odoEnd: number,
+  claimable: number | null,
+) {
+  return {
+    id,
+    day_id: SEED_DAY_ID,
+    user_id: USER_ID,
+    position,
+    from_name: from[0],
+    from_address: from[1],
+    from_type: from[2],
+    to_name: to[0],
+    to_address: to[1],
+    to_type: to[2],
+    odo_start: odoStart,
+    odo_end: odoEnd,
+    distance: odoEnd - odoStart,
+    claimable,
+    parking_cents: null,
+    parking_note: null,
+    note: null,
+    created_at: SEED_TIME,
+    updated_at: SEED_TIME,
+    deleted_at: null,
+  } satisfies LegRecord;
+}
+
+/** Write profile + locations + an open Fixture A day, bypassing the outbox. */
+async function seedPreOutboxData(database: MileageDatabase, legCount: number): Promise<void> {
+  const profile = {
+    user_id: USER_ID,
+    name: "Test Person",
+    tech_id: "T-TEST-1",
+    home_address: HOME_ADDRESS,
+    home_place_id: null,
+    home_lat: null,
+    home_lng: null,
+    office_location_id: OFFICE_LOC_ID,
+    home_office_km: 23,
+    created_at: SEED_TIME,
+    updated_at: SEED_TIME,
+    deleted_at: null,
+  } satisfies ProfileRecord;
+  const day = {
+    id: SEED_DAY_ID,
+    user_id: USER_ID,
+    date: "2026-07-02",
+    start_odometer: 155301,
+    end_odometer: null,
+    status: "open",
+    locked: false,
+    created_at: SEED_TIME,
+    updated_at: SEED_TIME,
+    deleted_at: null,
+  } satisfies DayRecord;
+  const allLegs = [
+    seedLeg(
+      "77777777-7777-4777-8777-777777777771",
+      0,
+      ["Home", HOME_ADDRESS, "home"],
+      ["Canon", CANON_ADDRESS, "office"],
+      155301,
+      155325,
+      null,
+    ),
+    seedLeg(
+      "77777777-7777-4777-8777-777777777772",
+      1,
+      ["Canon", CANON_ADDRESS, "office"],
+      ["Dsk Law", DSK_ADDRESS, "customer"],
+      155325,
+      155339,
+      14,
+    ),
+    seedLeg(
+      "77777777-7777-4777-8777-777777777773",
+      2,
+      ["Dsk Law", DSK_ADDRESS, "customer"],
+      ["Agat Laboratories", AGAT_ADDRESS, "customer"],
+      155339,
+      155347,
+      8,
+    ),
+    seedLeg(
+      "77777777-7777-4777-8777-777777777774",
+      3,
+      ["Agat Laboratories", AGAT_ADDRESS, "customer"],
+      ["Canon", CANON_ADDRESS, "office"],
+      155347,
+      155361,
+      14,
+    ),
+    seedLeg(
+      "77777777-7777-4777-8777-777777777775",
+      4,
+      ["Canon", CANON_ADDRESS, "office"],
+      ["Home", HOME_ADDRESS, "home"],
+      155361,
+      155386,
+      null,
+    ),
+  ];
+  await database.profiles.put(profile);
+  await database.locations.bulkPut([
+    seedLocation(HOME_LOC_ID, "Home", HOME_ADDRESS, "home"),
+    seedLocation(OFFICE_LOC_ID, "Canon", CANON_ADDRESS, "office"),
+    seedLocation(DSK_LOC_ID, "Dsk Law", DSK_ADDRESS, "customer"),
+    seedLocation(AGAT_LOC_ID, "Agat Laboratories", AGAT_ADDRESS, "customer"),
+  ]);
+  await database.days.put(day);
+  await database.legs.bulkPut(allLegs.slice(0, legCount));
+  expect(await listOutbox(database)).toHaveLength(0);
+}
+
+describe("sync fix: pre-outbox data and foreign keys (reported bug)", () => {
+  it("a v1 day edited after the upgrade syncs fully: backfill supplies the parents the FK needs", async () => {
+    const database = new MileageDatabase(freshName());
+    await seedPreOutboxData(database, 4); // Open day, first 4 Fixture A legs.
+
+    // The user's action: finish the pre-existing day in the Phase 4
+    // app. Only the new (Home) leg and the day-close are queued — the
+    // profile, locations, day and first four legs never had entries,
+    // and in raw queue order the leg sits BEFORE its day.
+    const context = await loadDayContext(database);
+    const ended = await endDay(database, context, SEED_DAY_ID, 155386);
+    if (ended.status !== "saved") throw new Error("End day was not saved");
+    await closeDayAfterSummary(database, context, SEED_DAY_ID);
+    expect((await listOutbox(database)).map((item) => item.entity)).toEqual(["leg", "day"]);
+
+    const remote = new FakeRemote();
+    const engine = makeEngine(database, remote);
+    const status = await engine.runSync();
+    expect(status.state).toBe("synced");
+    expect(status.lastError).toBeNull();
+    expect(await listOutbox(database)).toHaveLength(0);
+    expect(remote.count("profile")).toBe(1);
+    expect(remote.count("location")).toBe(4);
+    expect(remote.count("day")).toBe(1);
+    expect(remote.count("leg")).toBe(5);
+    expect(remote.get("day", SEED_DAY_ID)).toMatchObject({
+      status: "closed",
+      end_odometer: 155386,
+    });
+    const localLegIds = new Set((await listLegsByDay(database, SEED_DAY_ID)).map((leg) => leg.id));
+    expect(new Set(remote.rows.leg.keys())).toEqual(localLegIds);
+    const callsAfterSync = remote.upsertCalls.length;
+
+    // A second sync sends nothing new: backfill does not re-enqueue
+    // records the server already has.
+    const again = await engine.runSync();
+    expect(again.state).toBe("synced");
+    expect(remote.upsertCalls).toHaveLength(callsAfterSync);
+    expect(remote.count("leg")).toBe(5);
+    await database.delete();
+  });
+
+  it("pushes in dependency order even when the queue holds a leg before its day", async () => {
+    const database = new MileageDatabase(freshName());
+    await seedPreOutboxData(database, 5); // Complete day, still no outbox.
+    // Deliberately queue children first, parents last, by hand.
+    const leg = await database.legs.get("77777777-7777-4777-8777-777777777771");
+    const day = await database.days.get(SEED_DAY_ID);
+    const office = await database.locations.get(OFFICE_LOC_ID);
+    const profile = await database.profiles.get(USER_ID);
+    if (!leg || !day || !office || !profile) throw new Error("Seed rows missing");
+    const { enqueueChange } = await import("../src/data/outbox");
+    await enqueueChange(database, "leg", leg);
+    await enqueueChange(database, "day", day);
+    await enqueueChange(database, "profile", profile);
+    await enqueueChange(database, "location", office);
+
+    const remote = new FakeRemote();
+    const status = await makeEngine(database, remote).runSync();
+    expect(status.state).toBe("synced");
+    expect(remote.count("leg")).toBe(5); // Backfill supplied the rest.
+    expect(remote.count("day")).toBe(1);
+    expect(remote.count("profile")).toBe(1);
+    expect(remote.upsertCalls.map((call) => call.entity)).toEqual([
+      "location",
+      "location",
+      "location",
+      "location",
+      "profile",
+      "day",
+      "leg",
+      "leg",
+      "leg",
+      "leg",
+      "leg",
+    ]);
+    await database.delete();
+  });
+
+  it("a locked item blocks only its own record, not the rest of the queue", async () => {
+    const database = new MileageDatabase(freshName());
+    const { context } = await setupProfile(database);
+    // Lock the HOME location item (a past failure unrelated to the day
+    // the user is about to log).
+    const items = await listOutbox(database);
+    const homeItem = items[0];
+    if (!homeItem?.id) throw new Error("Home location item missing");
+    const { updateOutboxItem } = await import("../src/data/outbox");
+    await updateOutboxItem(database, homeItem.id, {
+      attempts: 3,
+      last_error: "remote unavailable (location)",
+    });
+
+    const started = await startDay(database, context, {
+      date: "2026-07-02",
+      startOdometer: 155301,
+    });
+    if (started.status !== "created") throw new Error("Day was blocked");
+    mustSave(await logStop(database, context, started.day.id, CANON, 155325));
+
+    const remote = new FakeRemote();
+    const status = await makeEngine(database, remote).runSync();
+    // Everything except the locked Home location synced…
+    expect(remote.count("location")).toBe(1); // The Office.
+    expect(remote.count("profile")).toBe(1);
+    expect(remote.count("day")).toBe(1);
+    expect(remote.count("leg")).toBe(1);
+    // …while the locked item stays queued and keeps surfacing.
+    const remaining = await listOutbox(database);
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]?.entity_id).toBe(homeItem.entity_id);
+    expect(remaining[0]?.attempts).toBe(3);
+    expect(status.state).toBe("error");
+    expect(status.pendingCount).toBe(1);
+    await database.delete();
+  });
+
+  it("recovers a queue stuck on a foreign-key lock without the user pressing Retry", async () => {
+    const database = new MileageDatabase(freshName());
+    await seedPreOutboxData(database, 5);
+    // The user's stuck item: the final leg, locked at 3 attempts with
+    // the exact production error.
+    const leg = await database.legs.get("77777777-7777-4777-8777-777777777775");
+    if (!leg) throw new Error("Seed leg missing");
+    await database.outbox.add({
+      entity: "leg",
+      entity_id: leg.id,
+      action: "upsert",
+      payload: leg,
+      queued_at: SEED_TIME,
+      attempts: 3,
+      last_error: FK_ERROR,
+    });
+    const engine = makeEngine(database, new FakeRemote());
+    expect((await engine.refreshStatus()).state).toBe("error");
+
+    // A fresh engine (the app after the fix deploys) recovers on its
+    // first ordinary sync run: FK locks are reset once, backfill
+    // supplies the day, and dependency order does the rest.
+    const remote = new FakeRemote();
+    const recovered = await makeEngine(database, remote).runSync();
+    expect(recovered.state).toBe("synced");
+    expect(await listOutbox(database)).toHaveLength(0);
+    expect(remote.count("day")).toBe(1);
+    expect(remote.count("leg")).toBe(5);
     await database.delete();
   });
 });

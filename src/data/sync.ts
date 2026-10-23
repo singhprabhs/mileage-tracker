@@ -2,6 +2,8 @@ import type { MileageDatabase } from "./db";
 import { getMetaValue, META_KEYS, setMetaValue } from "./meta";
 import {
   countOutbox,
+  enqueueChange,
+  entityIdOf,
   listOutbox,
   pendingEntityKeys,
   removeOutboxItem,
@@ -24,12 +26,26 @@ import {
  * server rows back in. It is written against an injectable RemoteStore so
  * tests drive it with an in-memory fake — no network, no real client.
  *
- * Push: outbox items are replayed in queue order as upserts by client
- * UUID, so replaying an item can never create a duplicate. An item is
- * removed only after the remote confirms it. A failure bumps the item's
- * attempts, records the error and stops the run, preserving order; an
- * item that has failed maxAttempts times stays queued, locks the queue
- * and surfaces an error state until retry() resets it.
+ * Push: outbox items are replayed as upserts by client UUID, so
+ * replaying an item can never create a duplicate. An item is removed
+ * only after the remote confirms it. Items are sent in DEPENDENCY
+ * order — locations, then profiles, then days, then legs (stable:
+ * queue order within one entity) — because the server enforces foreign
+ * keys (profiles.office_location_id → locations, legs.day_id → days),
+ * so a child must never be sent before its parent, wherever it sits
+ * in the queue.
+ *
+ * Failures are contained per record: a failed item bumps its attempts
+ * and blocks, for this run only, later items for the SAME record and
+ * items that depend on it (a profile whose Office location failed,
+ * legs whose day failed). Independent records keep syncing. An item
+ * that has failed maxAttempts times is locked: it is skipped by
+ * automatic runs, keeps surfacing in the status, and is re-enabled by
+ * retry() — it no longer deadlocks the whole queue.
+ *
+ * Backfill: before pushing, every run reconciles local records that
+ * have no pending outbox item (see backfillMissing) — that is how
+ * records written before the outbox existed reach the server at all.
  *
  * Pull: after pushing, rows changed since the watermark are merged with
  * last-write-wins by updated_at — except records that still have a
@@ -40,6 +56,19 @@ import {
  */
 
 export const SYNC_ENTITIES: readonly SyncEntity[] = ["profile", "location", "day", "leg"];
+
+/**
+ * Push order by foreign-key dependency: a record is only sent after
+ * the records it can reference. Locations first (profiles point at
+ * their Office location), then profiles, then days, then legs (which
+ * point at their day). Lower rank pushes earlier.
+ */
+const ENTITY_RANK: Record<SyncEntity, number> = {
+  location: 0,
+  profile: 1,
+  day: 2,
+  leg: 3,
+};
 
 /** A remote row as plain data; updated_at drives last-write-wins. */
 export type RemoteRow = Record<string, unknown> & { updated_at: string };
@@ -106,6 +135,8 @@ export class SyncEngine {
   private readonly listeners = new Set<StatusListener>();
   private status: SyncStatus = DEFAULT_STATUS;
   private running: Promise<SyncStatus> | null = null;
+  /** The foreign-key lock auto-reset runs at most once per engine. */
+  private fkLockResetDone = false;
 
   constructor(options: SyncEngineOptions) {
     this.database = options.database;
@@ -142,7 +173,8 @@ export class SyncEngine {
 
   /**
    * Recompute the status from the outbox alone (no network). State
-   * precedence: a locked (3-times-failed) item is an error; offline beats
+   * precedence: any locked (maxAttempts-failed) item is an error, even
+   * though it no longer blocks the rest of the queue; offline beats
    * pending; an empty queue with nowhere to sync is still just local.
    */
   async refreshStatus(): Promise<SyncStatus> {
@@ -191,6 +223,8 @@ export class SyncEngine {
     if (userId === null) return this.refreshStatus();
     if (!this.isOnline()) return this.refreshStatus();
 
+    await this.resetForeignKeyLocksOnce();
+    await this.backfillMissing();
     await this.pushOutbox();
     if (this.isOnline()) {
       await this.pullRemote(userId);
@@ -199,15 +233,147 @@ export class SyncEngine {
     return this.refreshStatus();
   }
 
+  /**
+   * Recovery for queues stuck by the pre-fix ordering bug: items that
+   * locked on a foreign-key violation were blocked by a parent record
+   * that had not been sent yet — not by a bad record of their own.
+   * Dependency order + backfill remove that cause, so once per engine
+   * lifetime (i.e. once per app load / app update) such items get
+   * their attempts reset and one fresh chance, without the user having
+   * to find Retry. Locks from any other error still need retry().
+   */
+  private async resetForeignKeyLocksOnce(): Promise<void> {
+    if (this.fkLockResetDone) return;
+    this.fkLockResetDone = true;
+    const items = await listOutbox(this.database);
+    for (const item of items) {
+      if (item.id === undefined) continue;
+      if (
+        item.attempts >= this.maxAttempts &&
+        item.last_error !== null &&
+        /foreign key/i.test(item.last_error)
+      ) {
+        await updateOutboxItem(this.database, item.id, { attempts: 0, last_error: null });
+      }
+    }
+  }
+
+  /**
+   * Backfill: enqueue an upsert for every local record that has no
+   * pending outbox item but might not be on the server. Such records
+   * exist when data was written before the outbox existed (Dexie v1
+   * days edited after the Phase 4 upgrade) — their children's queued
+   * changes would otherwise hit foreign-key violations forever.
+   *
+   * Rules: the FIRST run does a full scan of all four tables (gated by
+   * the backfillV2CompletedAt flag). Later runs only consider records
+   * updated after the last successful sync (lastSyncAt) — and never
+   * records whose version the server already has, identified by
+   * updated_at at or below the pull watermark (lastPulledAt): those
+   * came from, or were already confirmed by, the server. Two dependency
+   * closures run on EVERY run regardless of watermarks: a pending leg
+   * always drags its day into the queue, and a pending profile always
+   * drags its Office location — a child must never wait on a parent
+   * that is not queued. Enqueues are idempotent-UUID upserts, so a
+   * redundant one is harmless. Soft-deleted records are enqueued like
+   * any other, carrying their deleted_at snapshot.
+   */
+  private async backfillMissing(): Promise<void> {
+    const database = this.database;
+    const pending = await pendingEntityKeys(database);
+    const lastSyncAt = await getMetaValue(database, META_KEYS.lastSyncAt);
+    const lastPulledAt = await getMetaValue(database, META_KEYS.lastPulledAt);
+    const fullScan = (await getMetaValue(database, META_KEYS.backfillV2CompletedAt)) === null;
+
+    const qualifies = (updatedAt: string): boolean => {
+      if (!fullScan && lastSyncAt !== null && updatedAt <= lastSyncAt) return false;
+      if (lastPulledAt !== null && updatedAt <= lastPulledAt) return false;
+      return true;
+    };
+
+    const enqueueIfMissing = async (
+      entity: SyncEntity,
+      record: ProfileRecord | LocationRecord | DayRecord | LegRecord,
+      force = false,
+    ): Promise<void> => {
+      const key = `${entity}:${entityIdOf(entity, record)}`;
+      if (pending.has(key)) return;
+      if (!force && !qualifies(record.updated_at)) return;
+      await enqueueChange(database, entity, record);
+      pending.add(key);
+    };
+
+    // Dependency closure first (forced): parents of pending children.
+    const items = await listOutbox(database);
+    for (const item of items) {
+      if (item.entity === "leg") {
+        const dayId = String((item.payload as LegRecord).day_id ?? "");
+        const day = dayId ? await database.days.get(dayId) : undefined;
+        if (day) await enqueueIfMissing("day", day, true);
+      }
+      if (item.entity === "profile") {
+        const officeId = (item.payload as ProfileRecord).office_location_id;
+        const office = officeId ? await database.locations.get(officeId) : undefined;
+        if (office) await enqueueIfMissing("location", office, true);
+      }
+    }
+
+    // Then the scan itself, in dependency order for tidiness.
+    for (const location of await database.locations.toArray()) {
+      await enqueueIfMissing("location", location);
+    }
+    for (const profile of await database.profiles.toArray()) {
+      await enqueueIfMissing("profile", profile);
+    }
+    for (const day of await database.days.toArray()) {
+      await enqueueIfMissing("day", day);
+    }
+    for (const leg of await database.legs.toArray()) {
+      await enqueueIfMissing("leg", leg);
+    }
+
+    if (fullScan) {
+      await setMetaValue(database, META_KEYS.backfillV2CompletedAt, nowIso());
+    }
+  }
+
   private async pushOutbox(): Promise<void> {
     const remote = this.remote;
     if (!remote) return;
     const items = await listOutbox(this.database);
-    for (const item of items) {
+    // Stable dependency order: Array.prototype.sort is stable, so
+    // items of the same entity keep their original queue order.
+    const ordered = [...items].sort((a, b) => ENTITY_RANK[a.entity] - ENTITY_RANK[b.entity]);
+    // Records that failed (or are locked) in this run. Later items for
+    // the same record, and items depending on it, are skipped this run
+    // — sending them would either fail on the same foreign key or push
+    // a newer snapshot ahead of the failed older one. Everything else
+    // continues: one bad record no longer deadlocks the queue.
+    const blockedRecords = new Set<string>();
+    const blockedDayIds = new Set<string>();
+    const blockedLocationIds = new Set<string>();
+    const block = (item: OutboxRecord): void => {
+      blockedRecords.add(`${item.entity}:${item.entity_id}`);
+      if (item.entity === "day") blockedDayIds.add(item.entity_id);
+      if (item.entity === "location") blockedLocationIds.add(item.entity_id);
+    };
+
+    for (const item of ordered) {
       if (item.id === undefined) continue;
       if (item.attempts >= this.maxAttempts) {
-        // Locked: stays queued and surfaces via the status until retry().
-        return;
+        // Locked: skipped, stays queued and surfaces via the status
+        // until retry() (or the one-time foreign-key reset) frees it.
+        block(item);
+        continue;
+      }
+      if (blockedRecords.has(`${item.entity}:${item.entity_id}`)) continue;
+      if (item.entity === "leg") {
+        const dayId = String((item.payload as LegRecord).day_id ?? "");
+        if (blockedDayIds.has(dayId)) continue;
+      }
+      if (item.entity === "profile") {
+        const officeId = (item.payload as ProfileRecord).office_location_id;
+        if (officeId && blockedLocationIds.has(officeId)) continue;
       }
       try {
         await remote.upsert(item.entity, toRemotePayload(item));
@@ -216,7 +382,8 @@ export class SyncEngine {
           attempts: item.attempts + 1,
           last_error: errorMessage(caught),
         });
-        return; // Stop at the failed item; queue order is preserved.
+        block(item);
+        continue;
       }
       await removeOutboxItem(this.database, item.id);
     }

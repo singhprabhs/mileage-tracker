@@ -15,9 +15,10 @@ import {
  * data table AND this table, then call enqueueChange inside), so a change
  * can never be saved locally and lost before it is queued.
  *
- * No coalescing: one item per change, carrying that write's full snapshot,
- * replayed in queue order. For one user the volume is tiny, and replaying
- * every snapshot in order is correct by construction.
+ * No coalescing: one item per change, carrying that write's full snapshot.
+ * For one user the volume is tiny. The sync engine replays the items in
+ * foreign-key dependency order (locations, profiles, days, legs), stable
+ * by queue order within an entity — see sync.ts.
  */
 
 type OutboxListener = () => void;

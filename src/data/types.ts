@@ -100,9 +100,10 @@ export type SyncableRecord = ProfileRecord | LocationRecord | DayRecord | LegRec
 /**
  * One queued change for the sync engine. Written in the SAME Dexie
  * transaction as the local change it describes, so a change can never be
- * saved locally and then lost before it is queued. Items are replayed in
- * insertion order (by the auto-increment id) and removed only after the
- * server confirms them.
+ * saved locally and then lost before it is queued. Items carry their
+ * insertion order (the auto-increment id); the sync engine replays them
+ * in foreign-key dependency order (stable within an entity) and removes
+ * each only after the server confirms it.
  */
 export interface OutboxRecord {
   /** Auto-increment local id; also the queue order. */
