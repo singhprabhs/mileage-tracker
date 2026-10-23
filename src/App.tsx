@@ -1,8 +1,17 @@
+import { Route, Routes } from "react-router-dom";
+import AuthProvider from "./features/auth/AuthProvider";
+import SignInPage from "./features/auth/SignInPage";
+import HomePage from "./features/home/HomePage";
+import SettingsPage from "./features/settings/SettingsPage";
+
 export default function App() {
   return (
-    <main className="app-shell">
-      <h1>Mileage Tracker</h1>
-      <p>Log a day of driving and export a mileage claim.</p>
-    </main>
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/signin" element={<SignInPage />} />
+      </Routes>
+    </AuthProvider>
   );
 }

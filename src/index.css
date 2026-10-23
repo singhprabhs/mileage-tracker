@@ -19,10 +19,124 @@ body {
   margin: 0 auto;
   max-width: 430px;
   min-height: 100dvh;
-  padding: 24px 16px;
+  padding: 24px 16px 48px;
 }
 
 .app-shell h1 {
   font-size: 2rem;
   margin: 0 0 8px;
+}
+
+.app-shell h2 {
+  font-size: 1.25rem;
+  margin: 24px 0 8px;
+}
+
+a {
+  color: inherit;
+}
+
+/* Forms: mobile first, touch targets at least 48px. */
+.field {
+  margin: 0 0 16px;
+}
+
+.field label {
+  display: block;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.field input {
+  font: inherit;
+  min-height: 48px;
+  padding: 10px 12px;
+  width: 100%;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+}
+
+.field-hint {
+  font-size: 0.9rem;
+  margin: 6px 0 0;
+  opacity: 0.8;
+}
+
+.button {
+  font: inherit;
+  min-height: 48px;
+  padding: 10px 18px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  width: 100%;
+}
+
+.button-primary {
+  background: #0f4c81;
+  border-color: #0f4c81;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.button:disabled {
+  opacity: 0.6;
+}
+
+.notice {
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 16px 0;
+}
+
+.notice-error {
+  font-weight: 600;
+}
+
+.account-section {
+  margin-top: 32px;
+}
+
+.home-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.icon-link {
+  align-items: center;
+  display: inline-flex;
+  font-size: 1.6rem;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 48px;
+  text-decoration: none;
+}
+
+.profile-line {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.summary-list {
+  margin: 16px 0;
+}
+
+.summary-list div {
+  margin: 0 0 12px;
+}
+
+.summary-list dt {
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.summary-list dd {
+  margin: 2px 0 0;
 }

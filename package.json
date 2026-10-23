@@ -14,6 +14,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "dexie": "^4.4.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.0"
@@ -26,6 +28,7 @@
     "eslint": "^9.28.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
+    "fake-indexeddb": "^6.2.6",
     "globals": "^16.2.0",
     "prettier": "^3.5.0",
     "typescript": "^5.8.0",
