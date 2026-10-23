@@ -1,0 +1,46 @@
+# Supabase keepalive — copy this file to .github/workflows/keepalive.yml
+# in the repository (it ships under docs/ because the automation account
+# used for this repo cannot write workflow files; a human copies it once).
+#
+# Why: Supabase Free projects pause after 7 days with no requests. This
+# scheduled workflow makes one small read request every 3 days so the
+# project stays awake. The values come from the repository variables
+# (Settings → Secrets and variables → Actions → Variables), where
+# VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY already live — they are the
+# public browser keys, never the service_role key. If the ping ever fails,
+# this workflow fails loudly: a paused project can be resumed from the
+# Supabase dashboard with one click and no data is lost.
+
+name: Supabase keepalive
+
+on:
+  schedule:
+    # Every 3 days at 05:17 UTC (the minute is arbitrary; a quiet time
+    # spreads the load on GitHub's scheduler).
+    - cron: "17 5 */3 * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the Supabase REST endpoint
+        env:
+          SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY repository variables are not set."
+            exit 1
+          fi
+          code=$(curl -s -o /tmp/keepalive-body.txt -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/profiles?select=user_id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          cat /tmp/keepalive-body.txt
+          echo
+          if [ "$code" != "200" ]; then
+            echo "::error::Supabase did not respond as expected (HTTP $code). The project may be paused — resume it from the Supabase dashboard; no data is lost."
+            exit 1
+          fi
+          echo "Supabase project is awake (HTTP $code)."
