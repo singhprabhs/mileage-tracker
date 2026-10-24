@@ -8,6 +8,29 @@
          src/styles/tokens.css) per colour scheme. -->
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f7f9" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e1116" />
+    <!-- Appearance preference (UI Polish Phase 6): apply a stored
+         Light / Dark choice before first paint — data-theme for the
+         design tokens, and the theme-color metas rewritten to the
+         forced scheme — so a forced scheme never flashes the system
+         one. Mirrors applyThemePreference in src/ui/theme.ts. -->
+    <script>
+      try {
+        var mtTheme = window.localStorage.getItem("mt-theme");
+        if (mtTheme === "light" || mtTheme === "dark") {
+          document.documentElement.dataset.theme = mtTheme;
+          var mtMetas = document.querySelectorAll('meta[name="theme-color"]');
+          if (mtMetas.length >= 2) {
+            var mtActive = mtTheme === "light" ? mtMetas[0] : mtMetas[1];
+            var mtInactive = mtTheme === "light" ? mtMetas[1] : mtMetas[0];
+            mtActive.setAttribute("media", "all");
+            mtActive.setAttribute("content", mtTheme === "light" ? "#f6f7f9" : "#0e1116");
+            mtInactive.setAttribute("media", "not all");
+          }
+        }
+      } catch (error) {
+        // No storage access: the system colour scheme applies.
+      }
+    </script>
     <!-- Standalone (Home Screen) behaviour on iOS. The status bar style
          is black-translucent: iOS draws its white glyphs over a dark
          translucent scrim, so they stay readable over both our light
@@ -62,6 +85,14 @@
         html {
           background: #0e1116;
         }
+      }
+      /* A forced scheme (Phase 6 appearance setting) beats the
+         system media query for the first paint too. */
+      html[data-theme="light"] {
+        background: #f6f7f9;
+      }
+      html[data-theme="dark"] {
+        background: #0e1116;
       }
     </style>
     <title>Mileage Tracker</title>

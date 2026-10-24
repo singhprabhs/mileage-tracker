@@ -333,3 +333,61 @@ them. Screenshots in `docs/ui/phase5/` (`largetext-*`, `landscape-*`).
 Typecheck ✓, lint ✓, **145/145 unit tests** (incl. the Fixture A/B/C
 report tests), production build ✓, committed Playwright offline e2e ✓,
 plus the harness's online + offline report generation above.
+
+# PHASE 6 RESULTS — Approved improvements (2026-10-23)
+
+The five Suggested Improvements the brief marks "Approval needed: No",
+built in order, one feature per commit, all presentation + local UI
+state — domain, schema, sync, backup format and report outputs
+untouched. Before/after screenshots at 390px, light + dark, live in
+`docs/ui/phase6/<feature>/` (harness: `docs/ui/phase6/harness.mjs`,
+Playwright WebKit, data seeded through the app's own backup import;
+the month-end windows were reached with Playwright's clock set to
+Oct 30 / Nov 2, 2026).
+
+1. **Week + month totals on Today** (bd02753) — "Your totals" card
+   under the day summary, fed by loadHistory itself over the new
+   Monday–Sunday `weekRange` and `currentMonthRange`, so Today and
+   History can never disagree (unit test asserts both helpers return
+   the Fixture A+B totals). Harness cross-check: week 207 km / 88
+   claimable, month 292 / 124 + $20.50 parking — the seeded sums.
+2. **Month-end card on Today** (943bae7) — pure decision helper
+   (`src/features/day/monthEnd.ts`, 8 unit tests): the month's last
+   three days offer the current month, the 1st–3rd offer the month
+   just ended (that window also requires claimable > 0); both need
+   ≥1 closed day, and the figure sums closed days only. The button
+   opens History pre-set to the month (router state; the period
+   chip follows the range). Dismissal stores the month key, so one
+   month's dismissal never suppresses the next.
+3. **Open-day recovery card** (e38e8e6) — replaces the plain
+   "still open" line: the forgotten day's date, its last known
+   reading, a count of any further stale days (pure
+   `staleOpenDayCount`), "Close that day" to the day review's end
+   flow, "Not now" dismissing for the session only — the card
+   returns next launch (verified: the post-reload screenshot is
+   byte-identical to the initial one). Nothing auto-closes.
+4. **Deep link /#/log-stop** (6df4c6f) — all three branches
+   verified by final URL + screenshot: a day open → Log Stop;
+   no day → Start Day with "Start your day first — then logging a
+   stop is one tap."; today closed → Today and its Day complete
+   state. /end-day keeps its in-app banner (documented divergence).
+5. **Appearance setting + first-run tour** (c3f6c60, 69b45c8) —
+   Settings → Appearance: Auto / Light / Dark, persisted in
+   localStorage (mt-theme) and applied via the tokens' [data-theme]
+   hook, before first paint by an inline script in index.html, with
+   the theme-color metas rewritten to match (verified: forced Dark
+   under a light system and forced Light under a dark system, both
+   after reload; Auto follows the system both ways). Building it
+   exposed a latent bug — index.css's `:root { color-scheme:
+   light dark }` out-ordered tokens.css and left UA-default text
+   following the system scheme under a forced one (dark-on-dark);
+   color-scheme is now tokens-only and body text is var(--text).
+   The tour is three BottomSheet cards after first-launch setup
+   only (existing users updating never see it uninvited), gated by
+   the mt-tour-seen flag, replayable from Settings → About.
+
+Verification at the Phase 6 head: typecheck ✓, lint ✓, **160/160
+unit tests** (145 at Phase 5 + 15 new: weekRange/loadHistory
+cross-check ×2, monthEndCard ×8, staleOpenDayCount ×1, theme
+parse/resolve ×3, tourSeen ×1), production build ✓, committed
+offline e2e ✓ (run after every commit).

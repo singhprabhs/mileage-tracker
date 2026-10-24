@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { db, type LegRecord, type LocationRecord } from "../../data";
 import { Banner, Button, ConfirmDialog, SkeletonCard } from "../../components";
 import { BackLink } from "./chrome";
 import {
   endDay,
+  getClosedDayStateForDate,
   getOpenDayState,
   getRecentParking,
   listAllLegs,
@@ -12,6 +13,7 @@ import {
   loadDayContext,
   logStop,
   snapshotDay,
+  toLocalDateString,
   type DayState,
   type RecentParking,
 } from "./dayService";
@@ -60,10 +62,20 @@ function draftHasContent(draft: StopFormDraft): boolean {
  * Back with content asks before discarding, and a successful save
  * clears it. End Day mode keeps no draft — its one field is the
  * Home odometer, and the day itself is the record.
+ *
+ * Deep link (UI Polish Phase 6): /#/log-stop is the one-tap entry
+ * an iPhone Shortcut or Home Screen link opens. With a day open it
+ * lands here directly; with no day open it hands off instead of
+ * dead-ending — to Today when today's day is already closed (the
+ * "Day complete" state), otherwise to Start Day carrying a note
+ * that explains the detour. End Day mode keeps the plain banner:
+ * it is only ever reached from inside the app.
  */
 export default function LogStopPage({ endDayMode = false }: LogStopPageProps) {
   const navigate = useNavigate();
   const [openDay, setOpenDay] = useState<DayState | null>(null);
+  /** With no day open: was today already closed, or never started? */
+  const [noDayKind, setNoDayKind] = useState<"closed-today" | "none" | null>(null);
   const [recentStops, setRecentStops] = useState<LocationRecord[]>([]);
   const [recentParking, setRecentParking] = useState<RecentParking>({
     amountsCents: [],
@@ -113,6 +125,15 @@ export default function LogStopPage({ endDayMode = false }: LogStopPageProps) {
         setInitialDraft(draft);
         setDirty(draft !== null && draftHasContent(draft));
       }
+      if (!open) {
+        const closedToday = await getClosedDayStateForDate(
+          db,
+          context,
+          toLocalDateString(new Date()),
+        );
+        if (cancelled) return;
+        setNoDayKind(closedToday ? "closed-today" : "none");
+      }
       setLoaded(true);
     })();
     return () => {
@@ -131,6 +152,15 @@ export default function LogStopPage({ endDayMode = false }: LogStopPageProps) {
   }
 
   if (!openDay) {
+    // Deep-link hand-offs (Phase 6): never a dead end. A closed
+    // today lands on Today's "Day complete" state; no day at all
+    // lands on Start Day with the reason carried in router state.
+    if (!endDayMode && noDayKind === "closed-today") {
+      return <Navigate to="/" replace />;
+    }
+    if (!endDayMode && noDayKind === "none") {
+      return <Navigate to="/start" replace state={{ fromLogStop: true }} />;
+    }
     return (
       <main className="app-shell">
         <BackLink />

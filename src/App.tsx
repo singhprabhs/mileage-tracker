@@ -3,6 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import { startSyncEngine } from "./data";
 import { SkeletonCard } from "./components";
 import UpdateToast from "./ui/UpdateToast";
+import { applyThemePreference, readThemePreference } from "./ui/theme";
 import { useVisualViewportInset } from "./ui/useVisualViewportInset";
 import AuthProvider from "./features/auth/AuthProvider";
 import { requestPersistentStorage } from "./features/day/installState";
@@ -47,6 +48,11 @@ export default function App() {
   useVisualViewportInset();
 
   useEffect(() => {
+    // Appearance (Phase 6): the inline script in index.html already
+    // applied any stored Light/Dark choice before first paint; this
+    // re-applies it so the theme-color metas are right even if that
+    // script was somehow skipped.
+    applyThemePreference(readThemePreference());
     // Sync triggers (app open, network return, every 60 s) and a request
     // for persistent storage, so the browser keeps the local logs around.
     const stopSync = startSyncEngine();

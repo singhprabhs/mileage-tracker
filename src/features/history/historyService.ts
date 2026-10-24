@@ -55,6 +55,19 @@ export function lastMonthRange(now: Date = new Date()): DateRange {
 }
 
 /**
+ * The Monday–Sunday week containing `now` (UI Polish Phase 6: the
+ * running week totals on Today use the same loadHistory aggregation
+ * as the History screen, so the two can never disagree).
+ */
+export function weekRange(now: Date = new Date()): DateRange {
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+  return { start: toLocalDateString(monday), end: toLocalDateString(sunday) };
+}
+
+/**
  * Non-deleted days in [start, end] (inclusive) with their legs, in date
  * order (oldest first) and position order within each day — the order
  * reports and period totals expect.

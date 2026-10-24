@@ -7,6 +7,7 @@ import {
   currentMonthRange,
   lastMonthRange,
   loadHistory,
+  weekRange,
 } from "../src/features/history/historyService";
 import { fixtureA, fixtureB, fixtureC } from "./fixtures";
 
@@ -70,6 +71,55 @@ describe("lastMonthRange", () => {
       start: "2026-02-01",
       end: "2026-02-28",
     });
+  });
+});
+
+describe("weekRange", () => {
+  it("returns the Monday–Sunday week containing the date", () => {
+    // Thu Jul 02, 2026 → Mon Jun 29 – Sun Jul 05.
+    expect(weekRange(new Date(2026, 6, 2))).toEqual({
+      start: "2026-06-29",
+      end: "2026-07-05",
+    });
+    // A Monday starts its own week; a Sunday ends it.
+    expect(weekRange(new Date(2026, 6, 6))).toEqual({
+      start: "2026-07-06",
+      end: "2026-07-12",
+    });
+    expect(weekRange(new Date(2026, 6, 5))).toEqual({
+      start: "2026-06-29",
+      end: "2026-07-05",
+    });
+    // Across the year boundary: Fri Jan 01, 2027 → Mon Dec 28, 2026.
+    expect(weekRange(new Date(2027, 0, 1))).toEqual({
+      start: "2026-12-28",
+      end: "2027-01-03",
+    });
+  });
+
+  it("week and month totals via loadHistory match the explicit ranges (Fixtures A + B)", async () => {
+    const database = freshDb();
+    await saveProfileWithLocations(database, PROFILE_INPUT, USER_ID);
+    await seedDay(database, "2026-07-02", fixtureA, 155301, 155386);
+    await seedDay(database, "2026-07-03", fixtureB, 155386, 155470);
+
+    // Thu Jul 02 sits in the Jun 29 – Jul 05 week and in July: both
+    // period helpers must return exactly the History totals for the
+    // ranges they name — Today's card and History can never disagree.
+    const week = weekRange(new Date(2026, 6, 2));
+    const weekHistory = await loadHistory(database, week.start, week.end);
+    expect(weekHistory.totals.totalDistance).toBe(169);
+    expect(weekHistory.totals.totalClaimable).toBe(74);
+
+    const month = currentMonthRange(new Date(2026, 6, 2));
+    const monthHistory = await loadHistory(database, month.start, month.end);
+    expect(monthHistory.totals).toEqual(weekHistory.totals);
+
+    // A week with no days totals zero, like an empty History range.
+    const emptyWeek = weekRange(new Date(2026, 7, 10));
+    const empty = await loadHistory(database, emptyWeek.start, emptyWeek.end);
+    expect(empty.days).toHaveLength(0);
+    expect(empty.totals.totalDistance).toBe(0);
   });
 });
 

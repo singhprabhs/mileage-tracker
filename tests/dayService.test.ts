@@ -16,6 +16,7 @@ import {
   loadDayContext,
   logStop,
   restoreDaySnapshot,
+  staleOpenDayCount,
   startDay,
   type DayContext,
   type LogStopResult,
@@ -276,5 +277,21 @@ describe("formatFullDateLabel", () => {
     expect(formatFullDateLabel("2026-10-22")).toBe("Thu, Oct 22, 2026");
     expect(formatFullDateLabel("2026-10-23")).toBe("Fri, Oct 23, 2026");
     expect(formatFullDateLabel("2026-01-01")).toBe("Thu, Jan 01, 2026");
+  });
+});
+
+describe("staleOpenDayCount", () => {
+  const days = [
+    { date: "2026-10-20", status: "open" as const },
+    { date: "2026-10-21", status: "open" as const },
+    { date: "2026-10-22", status: "closed" as const },
+    { date: "2026-10-23", status: "open" as const },
+  ];
+
+  it("counts only open days dated before today", () => {
+    expect(staleOpenDayCount(days, "2026-10-23")).toBe(2);
+    expect(staleOpenDayCount(days, "2026-10-21")).toBe(1);
+    expect(staleOpenDayCount(days, "2026-10-20")).toBe(0);
+    expect(staleOpenDayCount([], "2026-10-23")).toBe(0);
   });
 });

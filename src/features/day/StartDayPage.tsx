@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { db } from "../../data";
 import { Banner, Button, NumericField, SkeletonCard } from "../../components";
 import { BackLink, DockBar } from "./chrome";
@@ -24,6 +24,11 @@ import {
  */
 export default function StartDayPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Arriving from the /#/log-stop deep link (Phase 6) earns one line
+  // of explanation above the form.
+  const fromLogStop =
+    (location.state as { fromLogStop?: boolean } | null)?.fromLogStop === true;
   const today = toLocalDateString(new Date());
   const [odometer, setOdometer] = useState("");
   const [prefilled, setPrefilled] = useState(false);
@@ -96,6 +101,10 @@ export default function StartDayPage() {
       <BackLink />
       <h1 className="screen-title">Start Day</h1>
       <p className="screen-date">{formatFullDateLabel(today)}</p>
+
+      {fromLogStop && !openDay ? (
+        <Banner kind="info">Start your day first — then logging a stop is one tap.</Banner>
+      ) : null}
 
       {openDay ? (
         <Banner kind="warning">

@@ -1,0 +1,62 @@
+/*
+ * First-run tour (UI Polish Phase 6): content inside the DS
+ * BottomSheet. Token-only, like every screen stylesheet.
+ */
+
+.tour-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.tour-icon {
+  align-items: center;
+  background: var(--accent-soft);
+  border-radius: 50%;
+  color: var(--accent);
+  display: inline-flex;
+  height: 56px;
+  justify-content: center;
+  margin-bottom: var(--sp-3);
+  width: 56px;
+}
+
+.tour-text {
+  color: var(--muted);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  margin: 0 0 var(--sp-4);
+}
+
+.tour-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: var(--sp-4);
+}
+
+.tour-dot {
+  background: var(--border);
+  border-radius: var(--r-pill);
+  height: 8px;
+  width: 8px;
+}
+
+.tour-dot--active {
+  background: var(--accent);
+  width: 20px;
+}
+
+.tour-actions {
+  align-items: center;
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.tour-actions .ds-btn:last-child {
+  flex: 1;
+}
+
+.tour-actions-spacer {
+  flex: 0 0 auto;
+  width: var(--target);
+}

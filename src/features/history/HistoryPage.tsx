@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { db } from "../../data";
 import { formatParking } from "../../domain";
 import {
@@ -80,8 +80,22 @@ function SummaryFigure({ value, label }: { value: ReactNode; label: string }) {
  * skeleton cards (F-16).
  */
 export default function HistoryPage() {
-  const [period, setPeriod] = useState<Period>("this-month");
-  const [range, setRange] = useState<DateRange>(() => currentMonthRange());
+  // A caller (Today's month-end card, Phase 6) may pre-set the range
+  // through router state; the period chip follows the range — this
+  // month / last month when it matches one, Custom otherwise.
+  const location = useLocation();
+  const preset = (location.state as { historyRange?: DateRange } | null)?.historyRange;
+  const [period, setPeriod] = useState<Period>(() => {
+    if (!preset) return "this-month";
+    if (preset.start === lastMonthRange().start && preset.end === lastMonthRange().end) {
+      return "last-month";
+    }
+    if (preset.start === currentMonthRange().start && preset.end === currentMonthRange().end) {
+      return "this-month";
+    }
+    return "custom";
+  });
+  const [range, setRange] = useState<DateRange>(() => preset ?? currentMonthRange());
   const [history, setHistory] = useState<HistoryResult | null>(null);
   const [noProfile, setNoProfile] = useState(false);
   const [loaded, setLoaded] = useState(false);

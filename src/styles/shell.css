@@ -38,6 +38,12 @@ body {
 }
 
 body {
+  /* The base text colour is the design token, so text that relies
+     on inheritance (screen titles, the legacy install notice, …)
+     follows the tokens in BOTH schemes — including a scheme forced
+     by the Phase 6 appearance setting, where the UA default text
+     colour would still follow the system scheme (Phase 6 fix). */
+  color: var(--text);
   /* The shell never rubber-bands behind its fixed bars. */
   overscroll-behavior: none;
 }

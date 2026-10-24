@@ -199,6 +199,19 @@ export async function getClosedDayStateForDate(
   return closed ? buildDayState(database, context, closed) : null;
 }
 
+/**
+ * How many open days are dated before `todayIso` — days that were
+ * started and never closed (UI Polish Phase 6: Today's recovery card
+ * names the oldest and counts the rest). Pure: the caller passes the
+ * day rows it already has.
+ */
+export function staleOpenDayCount(
+  days: readonly Pick<DayRecord, "date" | "status">[],
+  todayIso: string,
+): number {
+  return days.filter((row) => row.status === "open" && row.date < todayIso).length;
+}
+
 /** Prefill for Start Day: the last closed day's final odometer reading. */
 export async function getLastClosedDayFinalOdometer(
   database: MileageDatabase,

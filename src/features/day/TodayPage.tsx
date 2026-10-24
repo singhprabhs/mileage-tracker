@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { db, type LegRecord } from "../../data";
 import { formatParking } from "../../domain";
 import {
+  AlertTriangleIcon,
   Badge,
   BottomSheet,
   Button,
@@ -10,6 +11,7 @@ import {
   Card,
   CheckIcon,
   ChevronRightIcon,
+  CloseIcon,
   EmptyState,
   GaugeIcon,
   GearIcon,
@@ -18,15 +20,30 @@ import {
   SkeletonCard,
 } from "../../components";
 import { useAuth } from "../auth/authContext";
+import Tour from "../tour/Tour";
+import { markTourSeen, readTourSeen } from "../tour/tourState";
+import {
+  currentMonthRange,
+  lastMonthRange,
+  loadHistory,
+  weekRange,
+  type HistoryResult,
+} from "../history/historyService";
+import {
+  MONTH_END_DISMISSED_KEY,
+  monthEndCard,
+  type MonthAggregate,
+  type MonthEndCardModel,
+} from "./monthEnd";
 import { DockBar } from "./chrome";
 import {
   deleteLeg,
-  formatFullDateLabel,
   formatShortDateLabel,
   getClosedDayStateForDate,
   getDayState,
   getOpenDayState,
   loadDayContext,
+  staleOpenDayCount,
   toLocalDateString,
   type DayState,
 } from "./dayService";
@@ -46,6 +63,40 @@ function SummaryFigure({ value, label }: { value: ReactNode; label: string }) {
 }
 
 /**
+ * The month-end card's figures: closed days only (a day still open
+ * is not yet part of a report), summed from the per-day totals the
+ * History aggregation already computed — no new arithmetic.
+ */
+function closedAggregate(result: HistoryResult): MonthAggregate {
+  const closed = result.days.filter((entry) => entry.day.status === "closed");
+  return {
+    closedDays: closed.length,
+    claimableKm: closed.reduce((sum, entry) => sum + entry.totals.totalClaimable, 0),
+  };
+}
+
+/**
+ * One row of the week / month totals card (UI Polish Phase 6): the
+ * period label over its running figures. The figures come from
+ * loadHistory — the History screen's own aggregation — so the card
+ * can never disagree with History for the same period.
+ */
+function PeriodTotalsRow({ label, result }: { label: string; result: HistoryResult }) {
+  const { totals } = result;
+  return (
+    <div className="period-totals-row">
+      <span className="period-totals-label">{label}</span>
+      <span className="period-totals-values ds-num">
+        {totals.totalDistance} km · {totals.totalClaimable} km claimable
+        {totals.totalParkingCents > 0
+          ? ` · ${formatParking(totals.totalParkingCents)} parking`
+          : ""}
+      </span>
+    </div>
+  );
+}
+
+/**
  * Today (UI Polish Phase 3): top bar with the short date, the sync
  * pill and a settings icon; a summary card with the day's three
  * figures; the legs as a timeline whose rows open a detail sheet
@@ -56,7 +107,19 @@ function SummaryFigure({ value, label }: { value: ReactNode; label: string }) {
 export default function TodayPage() {
   const { session, configured } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // First-run tour (Phase 6): offered only on the hand-off from
+  // first-launch setup, and only until it has been seen once.
+  const tourRequested =
+    (location.state as { showTour?: boolean } | null)?.showTour === true;
+  const [tourOpen, setTourOpen] = useState(false);
   const [state, setState] = useState<DayState | null>(null);
+  const [periods, setPeriods] = useState<{ week: HistoryResult; month: HistoryResult } | null>(
+    null,
+  );
+  const [monthEnd, setMonthEnd] = useState<MonthEndCardModel | null>(null);
+  const [staleCount, setStaleCount] = useState(0);
+  const [recoveryDismissed, setRecoveryDismissed] = useState(false);
   const [lastDay, setLastDay] = useState<{ date: string; totalDistance: number } | null>(
     null,
   );
@@ -72,11 +135,57 @@ export default function TodayPage() {
   const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
   useEffect(() => {
+    if (tourRequested && !readTourSeen()) setTourOpen(true);
+  }, [tourRequested]);
+
+  function closeTour() {
+    markTourSeen();
+    setTourOpen(false);
+  }
+
+  useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const context = await loadDayContext(db);
         if (cancelled) return;
+        // Running week / month totals for the card under the day
+        // summary (Phase 6) — the History aggregation itself, over
+        // this Monday–Sunday week and this calendar month.
+        const weekR = weekRange();
+        const monthR = currentMonthRange();
+        const [week, month] = await Promise.all([
+          loadHistory(db, weekR.start, weekR.end),
+          loadHistory(db, monthR.start, monthR.end),
+        ]);
+        if (cancelled) return;
+        setPeriods({ week, month });
+        // Month-end card (Phase 6): this month's closed-day figures,
+        // plus last month's while the "month just ended" window
+        // (the 1st–3rd) is open. The decision itself is the pure
+        // monthEndCard helper; dismissal is stored per month.
+        let previous: MonthAggregate = { closedDays: 0, claimableKm: 0 };
+        if (Number(today.slice(8, 10)) <= 3) {
+          const prevRange = lastMonthRange();
+          previous = closedAggregate(await loadHistory(db, prevRange.start, prevRange.end));
+        }
+        if (cancelled) return;
+        let dismissed: string | null = null;
+        try {
+          dismissed = window.localStorage.getItem(MONTH_END_DISMISSED_KEY);
+        } catch {
+          dismissed = null;
+        }
+        setMonthEnd(monthEndCard(today, closedAggregate(month), previous, dismissed));
+        // Forgotten open days (Phase 6 recovery card): count the
+        // open days dated before today — the shown state below is
+        // the oldest of them.
+        const openRows = await db.days
+          .where("user_id")
+          .equals(context.userId)
+          .filter((row) => row.status === "open" && !row.deleted_at)
+          .toArray();
+        if (!cancelled) setStaleCount(staleOpenDayCount(openRows, today));
         const open = await getOpenDayState(db, context);
         const shown = open ?? (await getClosedDayStateForDate(db, context, today));
         if (!shown) {
@@ -115,6 +224,57 @@ export default function TodayPage() {
   const arrivedHome =
     state !== null && state.currentDestination.type === "home" && state.legs.length > 0;
   const shownDate = state ? state.day.date : today;
+
+  // The totals card renders only once something exists to total —
+  // a brand-new user with no days sees just the empty state.
+  const totalsSection =
+    periods && (periods.week.days.length > 0 || periods.month.days.length > 0) ? (
+      <section aria-label="Week and month totals">
+        <SectionHeader>Your totals</SectionHeader>
+        <Card>
+          <PeriodTotalsRow label="This week" result={periods.week} />
+          <PeriodTotalsRow label="This month" result={periods.month} />
+        </Card>
+      </section>
+    ) : null;
+
+  function dismissMonthEnd() {
+    if (!monthEnd) return;
+    try {
+      window.localStorage.setItem(MONTH_END_DISMISSED_KEY, monthEnd.monthKey);
+    } catch {
+      // Storage unavailable: the card simply returns next launch.
+    }
+    setMonthEnd(null);
+  }
+
+  const monthEndCardEl = monthEnd ? (
+    <Card className="month-end-card">
+      <div className="month-end-main">
+        <span className="month-end-icon">
+          <CalendarIcon width={22} height={22} />
+        </span>
+        <div className="month-end-text">
+          <p className="month-end-headline">{monthEnd.headline}</p>
+          <p className="month-end-detail ds-num">{monthEnd.detail}</p>
+        </div>
+        <button
+          type="button"
+          className="month-end-dismiss"
+          aria-label="Dismiss"
+          onClick={dismissMonthEnd}
+        >
+          <CloseIcon width={20} height={20} />
+        </button>
+      </div>
+      <Button
+        variant="secondary"
+        onClick={() => navigate("/history", { state: { historyRange: monthEnd.range } })}
+      >
+        {monthEnd.actionLabel}
+      </Button>
+    </Card>
+  ) : null;
 
   async function handleDeleteLeg() {
     if (!state || !sheetLeg) return;
@@ -155,14 +315,39 @@ export default function TodayPage() {
 
       <InstallCard />
 
-      {state && state.day.date !== today && dayOpen ? (
-        <p className="today-still-open">
-          This day is still open from {formatFullDateLabel(state.day.date)}.
-        </p>
+      {state && dayOpen && state.day.date < today && !recoveryDismissed ? (
+        <Card className="recovery-card">
+          <div className="recovery-main">
+            <span className="recovery-icon">
+              <AlertTriangleIcon width={22} height={22} />
+            </span>
+            <div className="recovery-text">
+              <p className="recovery-title">
+                You started a day on {formatShortDateLabel(state.day.date)} that isn&rsquo;t
+                closed.
+              </p>
+              <p className="recovery-detail ds-num">
+                Last reading: {state.currentOdometer}
+                {staleCount > 1
+                  ? ` · ${staleCount - 1} more ${staleCount - 1 === 1 ? "day" : "days"} still open`
+                  : ""}
+              </p>
+            </div>
+          </div>
+          <div className="recovery-actions">
+            <Button onClick={() => navigate(`/day/${state.day.id}`)}>Close that day</Button>
+            <Button variant="text" onClick={() => setRecoveryDismissed(true)}>
+              Not now
+            </Button>
+          </div>
+        </Card>
       ) : null}
 
       {!loaded ? (
-        <SkeletonCard lines={3} />
+        <>
+          <SkeletonCard lines={3} />
+          <SkeletonCard lines={2} />
+        </>
       ) : state ? (
         <>
           {state.day.status === "closed" ? (
@@ -198,6 +383,8 @@ export default function TodayPage() {
               </dl>
             </Card>
           )}
+
+          {totalsSection}
 
           <section aria-label="Legs">
             <SectionHeader>
@@ -248,16 +435,22 @@ export default function TodayPage() {
               </Link>
             ) : null}
           </section>
+
+          {monthEndCardEl}
         </>
       ) : (
-        <EmptyState
-          icon={<GaugeIcon />}
-          message={
-            lastDay
-              ? `No day started yet. Your last day was ${formatShortDateLabel(lastDay.date)} — ${lastDay.totalDistance} km.`
-              : "No day started yet. Start the day when you leave Home."
-          }
-        />
+        <>
+          <EmptyState
+            icon={<GaugeIcon />}
+            message={
+              lastDay
+                ? `No day started yet. Your last day was ${formatShortDateLabel(lastDay.date)} — ${lastDay.totalDistance} km.`
+                : "No day started yet. Start the day when you leave Home."
+            }
+          />
+          {totalsSection}
+          {monthEndCardEl}
+        </>
       )}
 
       <footer className="today-footer">
@@ -334,6 +527,8 @@ export default function TodayPage() {
       </BottomSheet>
 
       <UndoSnackbar onUndone={reload} aboveDock />
+
+      {tourOpen ? <Tour onClose={closeTour} /> : null}
     </main>
   );
 }

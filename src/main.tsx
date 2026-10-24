@@ -22,6 +22,8 @@ import "./features/history/historyScreens.css";
 import "./features/settings/settingsScreens.css";
 /* Sign-in screen styles (UI Polish Phase 4). */
 import "./features/auth/authScreens.css";
+/* First-run tour (UI Polish Phase 6). */
+import "./features/tour/tour.css";
 
 // Register the service worker before first render so the update
 // singleton exists before the shell's UpdateToast subscribes.

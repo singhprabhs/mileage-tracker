@@ -1,5 +1,9 @@
 :root {
-  color-scheme: light dark;
+  /* color-scheme is owned by src/styles/tokens.css alone (light by
+     default, dark under the system media query, forced by the
+     Phase 6 [data-theme] appearance setting). A second declaration
+     here — later in import order — silently overrode the forced
+     scheme for UA-rendered text and controls. */
   font-family:
     system-ui,
     -apple-system,

@@ -172,11 +172,153 @@
   margin-top: var(--sp-1);
 }
 
-.today-still-open {
-  color: var(--muted);
+/* Open-day recovery card (Phase 6): replaces the old plain
+   "still open" line. Warning medallion, the forgotten day's date
+   and last reading, and the two ways forward — close it, or
+   dismiss for this visit (it returns next launch). */
+.recovery-card {
+  margin-bottom: var(--sp-4);
+}
+
+.recovery-main {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.recovery-icon {
+  align-items: center;
+  background: var(--warning-soft);
+  border-radius: 50%;
+  color: var(--warning);
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.recovery-text {
+  flex: 1;
+  min-width: 0;
+  padding-top: var(--sp-1);
+}
+
+.recovery-title {
   font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
   line-height: var(--lh-body);
-  margin: 0 0 var(--sp-4);
+  margin: 0;
+}
+
+.recovery-detail {
+  color: var(--muted);
+  line-height: var(--lh-body);
+  margin: var(--sp-1) 0 0;
+}
+
+.recovery-actions {
+  align-items: center;
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.recovery-actions .ds-btn:first-child {
+  flex: 1;
+}
+
+/* Week / month running totals (Phase 6): quiet stacked rows under
+   the day summary — label over figures, hairline between the two
+   periods; the card itself supplies the outer padding. */
+.period-totals-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-2) 0;
+}
+
+.period-totals-row:first-child {
+  padding-top: 0;
+}
+
+.period-totals-row:last-child {
+  padding-bottom: 0;
+}
+
+.period-totals-row + .period-totals-row {
+  border-top: 1px solid var(--border);
+}
+
+.period-totals-label {
+  color: var(--muted);
+  font-size: var(--fs-small);
+}
+
+.period-totals-values {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-body);
+}
+
+/* Month-end card (Phase 6): a dismissible nudge under the day's
+   stops — calendar medallion, headline + claimable figure, and the
+   report action. Dismissal is remembered per month (monthEnd.ts). */
+.month-end-card {
+  margin-top: var(--sp-5);
+}
+
+.month-end-main {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.month-end-icon {
+  align-items: center;
+  background: var(--accent-soft);
+  border-radius: 50%;
+  color: var(--accent);
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.month-end-text {
+  flex: 1;
+  min-width: 0;
+  padding-top: var(--sp-1);
+}
+
+.month-end-headline {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  margin: 0;
+}
+
+.month-end-detail {
+  color: var(--muted);
+  line-height: var(--lh-body);
+  margin: var(--sp-1) 0 0;
+}
+
+.month-end-dismiss {
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: var(--target);
+  justify-content: center;
+  margin: calc(var(--sp-2) * -1) calc(var(--sp-2) * -1) 0 0;
+  padding: 0;
+  width: var(--target);
 }
 
 /* Summary figures: value over label, per the brief. */

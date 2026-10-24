@@ -38,13 +38,21 @@ import {
   ErrorState,
   ListRow,
   SectionHeader,
+  SegmentedControl,
   SkeletonCard,
   TextField,
   Toast,
 } from "../../components";
+import {
+  applyThemePreference,
+  readThemePreference,
+  storeThemePreference,
+  type ThemePreference,
+} from "../../ui/theme";
 import { useAuth } from "../auth/authContext";
 import { BackLink } from "../day/chrome";
 import { formatFullDateLabel, toLocalDateString } from "../day/dayService";
+import Tour from "../tour/Tour";
 import { downloadBlob } from "../reports/share";
 import ProfileForm from "./ProfileForm";
 import {
@@ -126,6 +134,8 @@ export default function SettingsPage() {
   const [sheetErrors, setSheetErrors] = useState<ProfileFormErrors>({});
   const [placeForm, setPlaceForm] = useState({ name: "", address: "" });
   const [placeError, setPlaceError] = useState<string | null>(null);
+  const [theme, setTheme] = useState<ThemePreference>(() => readThemePreference());
+  const [showTour, setShowTour] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadAll = useCallback(async () => {
@@ -175,6 +185,13 @@ export default function SettingsPage() {
     setErrors((current) => ({ ...current, [field]: undefined }));
   }
 
+  /** Appearance (Phase 6): persist and apply in the same tap. */
+  function changeTheme(next: ThemePreference) {
+    setTheme(next);
+    storeThemePreference(next);
+    applyThemePreference(next);
+  }
+
   function setSheetField(field: keyof ProfileFormState, value: string) {
     setSheetForm((current) => ({ ...current, [field]: value }));
     setSheetErrors((current) => ({ ...current, [field]: undefined }));
@@ -208,7 +225,9 @@ export default function SettingsPage() {
         }
       }
       if (firstSave) {
-        void navigate("/", { replace: true });
+        // First launch (Phase 6): Today offers the three-card tour
+        // on this hand-off, once.
+        void navigate("/", { replace: true, state: { showTour: true } });
       } else {
         setToast("Profile saved.");
       }
@@ -406,6 +425,24 @@ export default function SettingsPage() {
         </form>
       </Section>
 
+      <Section title="Appearance">
+        <Card>
+          <SegmentedControl
+            label="Appearance"
+            value={theme}
+            onChange={changeTheme}
+            options={[
+              { value: "auto", label: "Auto" },
+              { value: "light", label: "Light" },
+              { value: "dark", label: "Dark" },
+            ]}
+          />
+          <p className="settings-note">
+            Auto follows your phone&rsquo;s light or dark setting.
+          </p>
+        </Card>
+      </Section>
+
       <Section title="Locations">
         <Card>
           <ListRow
@@ -513,6 +550,12 @@ export default function SettingsPage() {
             Your logs live on this device first, so logging works with no signal; when
             you're signed in they also back up to your account.
           </p>
+          <ListRow
+            title="Replay the tour"
+            subtitle="The three-card intro, again"
+            chevron
+            onClick={() => setShowTour(true)}
+          />
         </Card>
       </Section>
 
@@ -628,6 +671,8 @@ export default function SettingsPage() {
       />
 
       {toast ? <SavedToast message={toast} /> : null}
+
+      {showTour ? <Tour onClose={() => setShowTour(false)} /> : null}
     </main>
   );
 }
