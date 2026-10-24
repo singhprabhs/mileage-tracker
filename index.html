@@ -2,9 +2,68 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f4c81" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Log a day of driving from odometer readings and export a mileage claim as PDF, Excel or CSV." />
+    <!-- Theme colour follows the design tokens (--bg in
+         src/styles/tokens.css) per colour scheme. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f7f9" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e1116" />
+    <!-- Standalone (Home Screen) behaviour on iOS. The status bar style
+         is black-translucent: iOS draws its white glyphs over a dark
+         translucent scrim, so they stay readable over both our light
+         and dark headers, and the shell pads content clear of the bar
+         with env(safe-area-inset-top) (src/styles/shell.css). -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Mileage" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+    <!-- Startup images: flat token background + centred icon, so a
+         Home Screen launch never flashes white. Pixel sizes and media
+         queries must match scripts/generate-icons.py. -->
+    <link
+      rel="apple-touch-startup-image"
+      href="splash-1170x2532.png"
+      media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: light)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="splash-1170x2532-dark.png"
+      media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="splash-1290x2796.png"
+      media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: light)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="splash-1290x2796-dark.png"
+      media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="splash-750x1334.png"
+      media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: light)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="splash-750x1334-dark.png"
+      media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)"
+    />
     <link rel="icon" type="image/png" href="pwa-192x192.png" />
+    <!-- Paint the token background before any stylesheet or script
+         loads, so first paint (and the gap before the splash image)
+         is never a white flash — especially in dark mode. -->
+    <style>
+      html {
+        background: #f6f7f9;
+      }
+      @media (prefers-color-scheme: dark) {
+        html {
+          background: #0e1116;
+        }
+      }
+    </style>
     <title>Mileage Tracker</title>
   </head>
   <body>

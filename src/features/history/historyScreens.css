@@ -1,0 +1,275 @@
+/*
+ * History & Reports screen styles (UI Polish Phase 4). Tokens only;
+ * shared figure/timeline classes come from dayScreens.css. The
+ * report preview is a fixed "paper" presentation — white page, report
+ * header colours — because it previews a printed document and must
+ * look the same in both colour schemes; the ink on it is near-black
+ * in both. No report content or layout rules live here: widths make
+ * the on-screen table readable, the PDF/Excel/CSV generators are
+ * untouched.
+ */
+
+.history-periods {
+  margin-bottom: var(--sp-4);
+}
+
+/* Custom range: the Phase-3-fixed non-overlapping pair — fields wrap
+   to full width before a native date control can clip its year. */
+.history-range {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+
+/* Sticky period summary: rides at the top (below the notch inset)
+   while the day list scrolls under it. */
+.history-summary-bar {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 5;
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+}
+
+.history-summary-bar .summary-figures {
+  gap: var(--sp-4);
+}
+
+.history-summary-bar .summary-value {
+  font-size: var(--fs-title2);
+}
+
+/* ---- Day cards ---- */
+
+.history-days {
+  list-style: none;
+  margin: 0 0 var(--sp-5);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.history-day-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: var(--target);
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-day-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-day-date {
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.history-day-meta {
+  color: var(--muted);
+  font-size: var(--fs-small);
+}
+
+.history-chev {
+  flex: none;
+  display: inline-flex;
+  color: var(--muted);
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.history-chev[data-open] {
+  transform: rotate(90deg);
+}
+
+/* In-place expansion: the grid-rows trick animates height smoothly;
+   content is inert while collapsed so it stays out of the tab order. */
+.history-day-legs {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 250ms var(--ease-out);
+  visibility: hidden;
+}
+
+.history-day-legs[data-open] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+}
+
+.history-day-legs-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.history-day-legs .timeline {
+  margin-top: var(--sp-3);
+}
+
+.history-day-review {
+  margin: var(--sp-2) 0 0;
+}
+
+.history-day-review a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* ---- Reports ---- */
+
+.history-report {
+  margin-top: var(--sp-5);
+}
+
+.history-report-title {
+  font-size: var(--fs-title2);
+  margin: 0 0 var(--sp-1);
+}
+
+.history-report .ds-segmented {
+  margin: var(--sp-3) 0 var(--sp-4);
+}
+
+.history-status {
+  color: var(--muted);
+  margin: 0 0 var(--sp-3);
+}
+
+.history-report .ds-banner,
+.history-report .ds-error {
+  margin-bottom: var(--sp-4);
+}
+
+.report-preview-block {
+  margin-top: var(--sp-2);
+}
+
+/* The paper page: fixed light presentation in both schemes. */
+.report-paper {
+  background: #ffffff;
+  color: #1a1a1a;
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--sp-4);
+  overflow: hidden;
+}
+
+.report-paper-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  justify-content: space-between;
+  background: #cfe2f3;
+  border-radius: 6px;
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+
+.report-paper-name {
+  margin: 0;
+  font-weight: 700;
+  font-size: var(--fs-body);
+}
+
+.report-paper-tech,
+.report-paper-facts p {
+  margin: 0;
+  font-size: var(--fs-small);
+}
+
+.report-paper-facts {
+  text-align: right;
+}
+
+.report-paper-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: 6px;
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.report-paper-row--peach {
+  background: #fce5cd;
+}
+
+.report-paper-row--yellow {
+  background: #fff2cc;
+}
+
+/* Readable design width inside a horizontal scroller (audit F-22:
+   addresses no longer wrap word-by-word). */
+.report-paper .report-table-scroll {
+  overflow-x: auto;
+  margin: 0 calc(-1 * var(--sp-1));
+  padding: 0 var(--sp-1);
+}
+
+.report-paper .report-table {
+  min-width: 720px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  color: #1a1a1a;
+}
+
+.report-paper .report-table th {
+  background: #cfe2f3;
+  text-align: left;
+  padding: 6px 8px;
+  font-weight: 600;
+  border: 1px solid #b9c9de;
+}
+
+.report-paper .report-table td {
+  padding: 6px 8px;
+  border: 1px solid #d5dee9;
+  vertical-align: top;
+}
+
+.report-paper .report-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.report-filename {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  margin: var(--sp-3) 0;
+  word-break: break-all;
+}
+
+.report-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-day-legs,
+  .history-chev {
+    transition: none;
+  }
+}

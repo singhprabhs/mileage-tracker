@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { db } from "../../data";
+import { Banner, Button, NumericField, SkeletonCard } from "../../components";
+import { BackLink, DockBar } from "./chrome";
 import {
-  formatDateLabel,
   formatFullDateLabel,
   getLastClosedDayFinalOdometer,
   getOpenDayState,
@@ -13,14 +14,19 @@ import {
 } from "./dayService";
 
 /**
- * Start Day: today's date and one numeric odometer field, prefilled
- * with the last closed day's final reading. Blocked while an earlier
- * day is still open — the user is offered that day's End Day instead.
+ * Start Day (UI Polish Phase 3): the shared core-flow form scaffold —
+ * Back control, title, the date in words, one large odometer field
+ * (the DS NumericField large variant fixes the audit's 16 px
+ * big-number bug, F-02), prefilled with the last closed day's final
+ * reading, and the primary action docked at the bottom. Blocked while
+ * an earlier day is still open — that day's End Day is offered
+ * instead, with its date in the one house format (audit F-26).
  */
 export default function StartDayPage() {
   const navigate = useNavigate();
   const today = toLocalDateString(new Date());
   const [odometer, setOdometer] = useState("");
+  const [prefilled, setPrefilled] = useState(false);
   const [openDay, setOpenDay] = useState<DayState | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +41,10 @@ export default function StartDayPage() {
         getOpenDayState(db, context),
       ]);
       if (cancelled) return;
-      if (lastFinal !== null) setOdometer(String(lastFinal));
+      if (lastFinal !== null) {
+        setOdometer(String(lastFinal));
+        setPrefilled(true);
+      }
       setOpenDay(open);
       setLoaded(true);
     })();
@@ -44,7 +53,8 @@ export default function StartDayPage() {
     };
   }, []);
 
-  async function handleConfirm() {
+  async function handleConfirm(event: FormEvent) {
+    event.preventDefault();
     setError(null);
     const value = Number(odometer);
     if (!/^\d+$/.test(odometer.trim()) || !Number.isInteger(value) || value < 0) {
@@ -57,15 +67,15 @@ export default function StartDayPage() {
       const result = await startDay(db, context, { date: today, startOdometer: value });
       if (result.status === "blocked") {
         setError(
-          `The day from ${formatDateLabel(result.openDay.date)} (${result.openDay.date}) is still open. Close it first, then start today's day.`,
+          `The day from ${formatFullDateLabel(result.openDay.date)} is still open. Close it first, then start today's day.`,
         );
         const open = await getOpenDayState(db, context);
         setOpenDay(open);
         return;
       }
       navigate("/", { replace: true });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not start the day.");
+    } catch {
+      setError("Could not start the day. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -74,70 +84,56 @@ export default function StartDayPage() {
   if (!loaded) {
     return (
       <main className="app-shell">
-        <p role="status">Loading…</p>
+        <BackLink />
+        <h1 className="screen-title">Start Day</h1>
+        <SkeletonCard lines={2} />
       </main>
     );
   }
 
   return (
-    <main className="app-shell">
-      <p>
-        <Link to="/">← Today</Link>
-      </p>
-      <h1>Start Day</h1>
-      <p className="today-date">
-        {formatFullDateLabel(today)}
-      </p>
+    <main className="app-shell app-shell--dock">
+      <BackLink />
+      <h1 className="screen-title">Start Day</h1>
+      <p className="screen-date">{formatFullDateLabel(today)}</p>
 
       {openDay ? (
-        <div className="notice" role="alert">
-          <p>
-            The day from {formatDateLabel(openDay.day.date)} ({openDay.day.date}) is still open.
-            Close it first — ending a day takes one stop at Home.
-          </p>
-          <button
-            type="button"
-            className="button button-primary"
-            onClick={() => navigate("/end-day")}
-          >
-            Close that day first
-          </button>
-        </div>
+        <Banner kind="warning">
+          <span className="sync-error-text">
+            The day from {formatFullDateLabel(openDay.day.date)} is still open. Close it
+            first — ending a day takes one stop at Home.
+          </span>
+          <Button onClick={() => navigate("/end-day")}>Close that day first</Button>
+        </Banner>
       ) : (
-        <>
-          <div className="field">
-            <label htmlFor="start-odometer">Odometer at Home</label>
-            <input
-              id="start-odometer"
-              className="big-number-input"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              autoComplete="off"
-              autoFocus
-              value={odometer}
-              onChange={(event) => setOdometer(event.target.value.replace(/[^0-9]/g, ""))}
-            />
-            <p className="field-hint">
-              Pre-filled with the last closed day's final reading — change it if the car moved
-              since.
-            </p>
-          </div>
+        <form id="start-day-form" onSubmit={(e) => void handleConfirm(e)}>
+          <NumericField
+            id="start-odometer"
+            label="Odometer at Home"
+            large
+            autoFocus
+            value={odometer}
+            onChange={(event) => setOdometer(event.target.value.replace(/[^0-9]/g, ""))}
+            hint={
+              prefilled
+                ? "Pre-filled with the last closed day's final reading — change it if the car moved since."
+                : "Enter the full odometer reading."
+            }
+          />
           {error ? (
-            <p className="notice notice-error" role="alert">
+            <p className="form-error" role="alert">
               {error}
             </p>
           ) : null}
-          <button
-            type="button"
-            className="button button-primary button-large"
-            disabled={saving}
-            onClick={() => void handleConfirm()}
-          >
-            {saving ? "Starting…" : "Confirm — start at Home"}
-          </button>
-        </>
+        </form>
       )}
+      {!openDay ? (
+        <DockBar>
+          <Button type="submit" form="start-day-form" loading={saving}>
+            Confirm — start at Home
+          </Button>
+        </DockBar>
+      ) : null}
     </main>
   );
 }

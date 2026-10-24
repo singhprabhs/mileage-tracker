@@ -20,6 +20,15 @@ export const META_KEYS = {
   lastExportAt: "lastExportAt",
   /** "1" once the user has dismissed the Add to Home Screen hint. */
   installHintDismissed: "installHintDismissed",
+  /**
+   * How many times the iOS install card has been dismissed (UI Polish
+   * Phase 2). The card stops appearing at 2 dismissals; a legacy
+   * installHintDismissed "1" counts as one (see installDismissalCount).
+   */
+  installCardDismissals: "installCardDismissals",
+  /** "1" once the app is known to be installed (appinstalled event,
+      or a launch detected in standalone display mode). */
+  installCardInstalled: "installCardInstalled",
 } as const;
 
 export async function getMetaValue(database: MileageDatabase, key: string): Promise<string | null> {

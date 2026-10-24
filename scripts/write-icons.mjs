@@ -7,7 +7,19 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const icons = ["pwa-192x192", "pwa-512x512", "pwa-maskable-512x512"];
+const icons = [
+  "pwa-192x192",
+  "pwa-512x512",
+  "pwa-maskable-512x512",
+  // UI Polish Phase 2: iOS Home Screen icon + startup (splash) images.
+  "apple-touch-icon",
+  "splash-1170x2532",
+  "splash-1170x2532-dark",
+  "splash-1290x2796",
+  "splash-1290x2796-dark",
+  "splash-750x1334",
+  "splash-750x1334-dark",
+];
 mkdirSync(join(root, "public"), { recursive: true });
 for (const name of icons) {
   const b64 = readFileSync(join(root, "assets", "icons", `${name}.png.b64`), "utf8").trim();

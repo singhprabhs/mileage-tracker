@@ -1,0 +1,823 @@
+/*
+ * Shared component styles — UI Polish Phase 1.
+ *
+ * Every class is prefixed `ds-` so nothing here can collide with (or
+ * restyle) the existing screens, which keep using src/index.css. Every
+ * colour, size, spacing, radius and duration comes from
+ * src/styles/tokens.css — no hard-coded values.
+ */
+
+/* ---------- Buttons ---------- */
+
+.ds-btn {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--r-input);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  gap: var(--sp-2);
+  justify-content: center;
+  min-height: var(--target);
+  padding: var(--sp-3) var(--sp-5);
+  transition:
+    background-color var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    transform var(--dur-press) var(--ease-out),
+    filter var(--dur-press) var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.ds-btn:active {
+  filter: brightness(0.94);
+  transform: scale(0.98);
+}
+
+.ds-btn:disabled {
+  cursor: default;
+  filter: none;
+  opacity: 0.55;
+  transform: none;
+}
+
+.ds-btn:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.ds-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  min-height: var(--primary-h);
+}
+
+.ds-btn--secondary {
+  background: var(--surface);
+  border-color: var(--input-border);
+  color: var(--text);
+}
+
+.ds-btn--destructive {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--on-danger);
+}
+
+.ds-btn--text {
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+  padding-left: var(--sp-3);
+  padding-right: var(--sp-3);
+}
+
+.ds-btn-spinner {
+  animation: ds-spin 0.8s linear infinite;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  border-top-color: transparent;
+  height: 18px;
+  width: 18px;
+}
+
+@keyframes ds-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Fields ---------- */
+
+.ds-field {
+  margin: 0 0 var(--sp-4);
+}
+
+.ds-field-label {
+  display: block;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  margin: 0 0 var(--sp-2);
+}
+
+.ds-input {
+  background: var(--surface);
+  border: 1px solid var(--input-border);
+  border-radius: var(--r-input);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  min-height: var(--target);
+  padding: var(--sp-3);
+  width: 100%;
+}
+
+.ds-input:focus {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
+.ds-input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.ds-input--large {
+  font-size: var(--fs-title1);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  min-height: 64px;
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.ds-field-hint {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  line-height: var(--lh-body);
+  margin: var(--sp-2) 0 0;
+}
+
+.ds-field-error {
+  align-items: flex-start;
+  color: var(--danger);
+  display: flex;
+  font-size: var(--fs-small);
+  gap: var(--sp-1);
+  line-height: var(--lh-body);
+  margin: var(--sp-2) 0 0;
+}
+
+.ds-field-error svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Search field */
+
+.ds-search {
+  position: relative;
+}
+
+.ds-search-icon {
+  color: var(--muted);
+  left: var(--sp-3);
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.ds-search-input {
+  padding-left: 44px;
+  padding-right: 44px;
+}
+
+.ds-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.ds-search-clear {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: var(--target);
+  justify-content: center;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--target);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.ds-search-clear:active {
+  color: var(--text);
+}
+
+.ds-search-clear:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* ---------- Segmented control ---------- */
+
+.ds-segmented {
+  background: var(--neutral-soft);
+  border-radius: var(--r-card);
+  display: flex;
+  gap: var(--sp-1);
+  padding: var(--sp-1);
+}
+
+.ds-segmented-btn {
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--r-card) - var(--sp-1));
+  color: var(--muted);
+  cursor: pointer;
+  flex: 1;
+  font-family: var(--font);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-semibold);
+  min-height: 40px;
+  padding: var(--sp-2) var(--sp-3);
+  transition:
+    background-color var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.ds-segmented-btn[data-selected] {
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  color: var(--text);
+}
+
+.ds-segmented-btn:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* ---------- Card, section header, list row ---------- */
+
+.ds-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--sp-4);
+}
+
+.ds-section-header {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.04em;
+  margin: var(--sp-5) 0 var(--sp-2);
+  text-transform: uppercase;
+}
+
+.ds-row {
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  display: flex;
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  gap: var(--sp-3);
+  min-height: 56px;
+  padding: var(--sp-2) var(--sp-3);
+  text-align: left;
+  width: 100%;
+}
+
+button.ds-row {
+  border-radius: var(--r-card);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button.ds-row:active {
+  background: var(--neutral-soft);
+}
+
+button.ds-row:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.ds-row-icon {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.ds-row-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ds-row-title {
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-body);
+}
+
+.ds-row-subtitle {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  line-height: var(--lh-body);
+}
+
+.ds-row-value {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.ds-row-chevron {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* ---------- Overlays: bottom sheet & dialog ---------- */
+
+.ds-overlay {
+  inset: 0;
+  position: fixed;
+  z-index: var(--z-sheet);
+}
+
+.ds-overlay--center {
+  z-index: var(--z-dialog);
+}
+
+.ds-backdrop {
+  background: var(--backdrop);
+  border: none;
+  cursor: pointer;
+  inset: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+  animation: ds-fade-in var(--dur) var(--ease-out);
+}
+
+.ds-sheet {
+  animation: ds-slide-up var(--dur-slow) var(--ease-out);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  bottom: 0;
+  box-shadow: var(--shadow-sheet);
+  left: 0;
+  max-height: 88dvh;
+  overflow-y: auto;
+  padding: var(--sp-2) var(--sp-4) calc(var(--sp-5) + env(safe-area-inset-bottom, 0px));
+  position: absolute;
+  right: 0;
+}
+
+.ds-sheet:focus {
+  outline: none;
+}
+
+.ds-sheet-handle {
+  background: var(--input-border);
+  border-radius: var(--r-pill);
+  height: 5px;
+  margin: var(--sp-2) auto var(--sp-3);
+  width: 40px;
+}
+
+.ds-sheet-title {
+  font-size: var(--fs-title3);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  margin: 0 0 var(--sp-3);
+}
+
+.ds-dialog {
+  animation: ds-pop-in var(--dur) var(--ease-out);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sheet);
+  box-shadow: var(--shadow-pop);
+  left: 50%;
+  max-width: 400px;
+  padding: var(--sp-5);
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - var(--sp-6));
+}
+
+.ds-dialog:focus {
+  outline: none;
+}
+
+.ds-dialog-title {
+  font-size: var(--fs-title3);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  margin: 0 0 var(--sp-2);
+}
+
+.ds-dialog-message {
+  color: var(--muted);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  margin: 0 0 var(--sp-4);
+}
+
+.ds-dialog-actions {
+  display: grid;
+  gap: var(--sp-2);
+  grid-template-columns: 1fr 1fr;
+}
+
+.ds-dialog-actions .ds-btn {
+  min-height: var(--target);
+}
+
+@keyframes ds-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ds-slide-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0.4;
+  }
+}
+
+@keyframes ds-pop-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+}
+
+/* ---------- Pills, badges, chips ---------- */
+
+.ds-pill {
+  align-items: center;
+  border-radius: var(--r-pill);
+  display: inline-flex;
+  font-size: var(--fs-small);
+  font-weight: var(--fw-semibold);
+  gap: var(--sp-1);
+  line-height: 1;
+  min-height: 28px;
+  padding: var(--sp-1) var(--sp-3);
+}
+
+.ds-pill--synced {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.ds-pill--pending {
+  background: var(--neutral-soft);
+  color: var(--muted);
+}
+
+.ds-pill--offline {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.ds-badge {
+  background: var(--neutral-soft);
+  border-radius: var(--r-pill);
+  color: var(--text);
+  display: inline-flex;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+  padding: var(--sp-1) var(--sp-2);
+  white-space: nowrap;
+}
+
+.ds-chip {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--input-border);
+  border-radius: var(--r-pill);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--font);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-semibold);
+  min-height: var(--target);
+  padding: var(--sp-2) var(--sp-4);
+  transition:
+    background-color var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.ds-chip:active {
+  transform: scale(0.98);
+}
+
+.ds-chip[data-selected] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.ds-chip:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---------- Toast ---------- */
+
+.ds-toast {
+  align-items: center;
+  background: var(--toast-bg);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-pop);
+  color: var(--toast-text);
+  display: flex;
+  font-size: var(--fs-small);
+  gap: var(--sp-3);
+  line-height: var(--lh-body);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.ds-toast-icon {
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.ds-toast-message {
+  flex: 1;
+}
+
+.ds-toast-action {
+  background: transparent;
+  border: none;
+  border-radius: var(--r-input);
+  color: var(--toast-action);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: var(--font);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-semibold);
+  min-height: var(--target);
+  padding: var(--sp-2) var(--sp-3);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.ds-toast-action:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+
+/* ---------- Banner ---------- */
+
+.ds-banner {
+  align-items: flex-start;
+  border-radius: var(--r-card);
+  display: flex;
+  gap: var(--sp-2);
+  line-height: var(--lh-body);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.ds-banner--offline {
+  background: var(--neutral-soft);
+  color: var(--text);
+}
+
+.ds-banner--warning {
+  background: var(--warning-soft);
+  color: var(--text);
+}
+
+.ds-banner--info {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.ds-banner-icon {
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ds-banner--offline .ds-banner-icon {
+  color: var(--muted);
+}
+
+.ds-banner--warning .ds-banner-icon {
+  color: var(--warning);
+}
+
+.ds-banner--info .ds-banner-icon {
+  color: var(--accent);
+}
+
+.ds-banner-text {
+  flex: 1;
+}
+
+/* ---------- Skeleton ---------- */
+
+.ds-skeleton {
+  animation: ds-pulse 1.6s var(--ease-out) infinite;
+  background: var(--neutral-soft);
+  border-radius: var(--sp-1);
+}
+
+.ds-skeleton-card {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+@keyframes ds-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* ---------- Empty & error states ---------- */
+
+.ds-empty {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-6) var(--sp-4);
+  text-align: center;
+}
+
+.ds-empty-icon {
+  align-items: center;
+  background: var(--neutral-soft);
+  border-radius: 50%;
+  color: var(--muted);
+  display: inline-flex;
+  height: 64px;
+  justify-content: center;
+  width: 64px;
+}
+
+.ds-empty-icon svg {
+  height: 30px;
+  width: 30px;
+}
+
+.ds-empty-icon--error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.ds-empty-message {
+  color: var(--muted);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  margin: 0;
+  max-width: 300px;
+}
+
+/* ---------- Install card (UI Polish Phase 2) ---------- */
+
+.ds-install {
+  margin: var(--sp-4) 0;
+}
+
+.ds-install-head {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.ds-install-title {
+  flex: 1;
+  font-size: var(--fs-title3);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  margin: 0;
+  padding-top: var(--sp-2);
+}
+
+.ds-install-dismiss {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: var(--target);
+  justify-content: center;
+  width: var(--target);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.ds-install-dismiss:active {
+  background: var(--neutral-soft);
+}
+
+.ds-install-dismiss:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.ds-install-line {
+  color: var(--muted);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  margin: var(--sp-2) 0 0;
+}
+
+/* The illustration: Share tile, arrow, add-to-home-screen tile. */
+.ds-install-figure {
+  align-items: center;
+  display: flex;
+  gap: var(--sp-3);
+  margin: var(--sp-4) 0;
+}
+
+.ds-install-step-icon {
+  align-items: center;
+  background: var(--accent-soft);
+  border-radius: var(--r-card);
+  color: var(--accent);
+  display: inline-flex;
+  height: 56px;
+  justify-content: center;
+  width: 56px;
+}
+
+.ds-install-figure-arrow {
+  color: var(--muted);
+  display: inline-flex;
+}
+
+.ds-install-appicon {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 14px;
+  color: var(--on-accent);
+  display: inline-flex;
+  height: 56px;
+  justify-content: center;
+  width: 56px;
+}
+
+.ds-install-steps {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  margin: 0;
+  padding-left: var(--sp-5);
+}
+
+.ds-install-steps li + li {
+  margin-top: var(--sp-1);
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-btn,
+  .ds-chip,
+  .ds-segmented-btn {
+    transition: none;
+  }
+
+  .ds-btn:active,
+  .ds-chip:active {
+    transform: none;
+  }
+
+  .ds-backdrop,
+  .ds-dialog {
+    animation: ds-fade-in var(--dur) var(--ease-out);
+  }
+
+  .ds-sheet {
+    animation: ds-fade-in var(--dur) var(--ease-out);
+  }
+
+  .ds-skeleton {
+    animation: none;
+  }
+
+  .ds-btn-spinner {
+    animation-duration: 1.6s;
+  }
+}

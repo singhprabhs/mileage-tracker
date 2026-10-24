@@ -19,6 +19,9 @@ export interface DayWithLegs {
 export interface HistoryDay {
   day: DayRecord;
   totals: PeriodTotals;
+  /** The day's legs in driving order — the History day cards expand
+   * in place to show them (UI Polish Phase 4); totals are unchanged. */
+  legs: LegRecord[];
 }
 
 export interface HistoryResult {
@@ -41,6 +44,13 @@ export interface DateRange {
 export function currentMonthRange(now: Date = new Date()): DateRange {
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
   const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { start: toLocalDateString(first), end: toLocalDateString(last) };
+}
+
+/** The full calendar month before the current one (period chip). */
+export function lastMonthRange(now: Date = new Date()): DateRange {
+  const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const last = new Date(now.getFullYear(), now.getMonth(), 0);
   return { start: toLocalDateString(first), end: toLocalDateString(last) };
 }
 
@@ -80,6 +90,7 @@ export async function loadHistory(
   const days: HistoryDay[] = daysWithLegs.map(({ day, legs }) => ({
     day,
     totals: periodTotals(legs, homeOfficeKm),
+    legs,
   }));
   const allLegs: Leg[] = daysWithLegs.flatMap(({ legs }) => legs);
   const totals = periodTotals(allLegs, homeOfficeKm);

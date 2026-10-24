@@ -1,0 +1,27 @@
+/*
+ * Sign-in screen styles (UI Polish Phase 4). Tokens only; the
+ * fields, buttons, cards and banners are the design system's.
+ */
+
+.signin-shell > .ds-banner,
+.signin-shell form > .ds-banner {
+  margin-top: var(--sp-3);
+}
+
+.signin-paste {
+  margin-top: var(--sp-5);
+}
+
+.signin-paste-title {
+  font-size: var(--fs-body);
+  font-weight: 700;
+  margin: 0 0 var(--sp-2);
+}
+
+.signin-steps {
+  margin: 0 0 var(--sp-4);
+  padding-left: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}

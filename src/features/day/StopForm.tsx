@@ -1,18 +1,37 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   completeOdometer,
   formatParking,
   legWarnings,
   validateParking,
   type Leg,
+  type LegWarning,
+  type LegWarningCode,
 } from "../../domain";
 import type { LocationRecord } from "../../data";
 import type { LocationType } from "../../domain/types";
 import {
   ADDRESS_SEARCH_ATTRIBUTION,
   getAddressSearcher,
+  MIN_QUERY_LENGTH,
   type PlaceSuggestion,
 } from "../stops/addressSearch";
+import {
+  Banner,
+  Button,
+  Card,
+  ConfirmDialog,
+  ListRow,
+  MapPinIcon,
+  NumericField,
+  PencilIcon,
+  SearchField,
+  SectionHeader,
+  SegmentedControl,
+  Skeleton,
+  TextField,
+} from "../../components";
+import { DockBar } from "./chrome";
 import type { StopDestination } from "./dayService";
 import ParkingRow from "./ParkingRow";
 import { EMPTY_PARKING, parkingCentsOf, type ParkingValue } from "./parkingValue";
@@ -21,6 +40,23 @@ export interface StopSubmit {
   destination: StopDestination;
   odoEnd: number;
   parking: { parking_cents: number | null; parking_note: string | null };
+}
+
+/**
+ * A restorable snapshot of the in-progress form (audit F-04). The
+ * parent (Log Stop) persists it per open day and hands it back on
+ * mount; a successful save clears it there.
+ */
+export interface StopFormDraft {
+  name: string;
+  address: string;
+  destType: LocationType;
+  place_id: string | null;
+  lat: number | null;
+  lng: number | null;
+  odoDigits: string;
+  parking: ParkingValue;
+  step: 1 | 2;
 }
 
 interface StopFormProps {
@@ -40,13 +76,49 @@ interface StopFormProps {
   onSubmit: (submit: StopSubmit & { parking_confirmed: boolean }) => Promise<string | null>;
   /** Optional Home shortcut button (Log Stop's "end the day" path). */
   onHomeShortcut?: () => void;
+  /** F-04 draft protection: restore from, and report changes to, this. */
+  initialDraft?: StopFormDraft | null;
+  onDraftChange?: (draft: StopFormDraft) => void;
+}
+
+/** The domain's warnings in plain words (computations unchanged). */
+function plainWarning(
+  warning: LegWarning,
+  reading: number,
+  previousReading: number,
+): string {
+  const distance = reading - previousReading;
+  switch (warning.code) {
+    case "negative-distance":
+      return `This reading is lower than the previous reading (${previousReading}), so the leg would be ${distance} km. Check the reading — or keep it if it's right.`;
+    case "over-150km":
+      return `That's ${distance} km in one leg — more than 150 km. Check the reading if that seems too far.`;
+    case "over-3x-median":
+      return `That's ${distance} km — much longer than this trip usually is. Check the reading if that seems off.`;
+    default:
+      return "That reading looks unusual. Check it — or keep it if it's right.";
+  }
+}
+
+function focusField(id: string) {
+  const el = document.getElementById(id);
+  if (el instanceof HTMLInputElement) {
+    el.focus();
+    el.select();
+  }
 }
 
 /**
- * The shared stop-entry form: address search with suggestions above
- * recent stops (manual entry always available), name and address fields,
- * the odometer field with live shortcut completion and non-blocking
- * warnings, and the collapsed parking row.
+ * The shared stop-entry form (UI Polish Phase 3), in two steps.
+ * Step 1: one large search field — Recent places from local data and
+ * Geoapify Suggestions as list rows, skeleton rows while searching,
+ * and a plain-language banner with a manual path when search is
+ * unavailable. Step 2: the chosen place as a card (editable via the
+ * pencil), the big odometer field with the previous reading above it
+ * and the live-completed reading below, domain warnings inline in
+ * plain words with Fix / Keep, the collapsed parking row, and Save
+ * docked in the bottom bar. Insert Stop and End Day reuse the form;
+ * their props are unchanged.
  */
 export default function StopForm({
   previousReading,
@@ -60,58 +132,91 @@ export default function StopForm({
   submitLabel,
   onSubmit,
   onHomeShortcut,
+  initialDraft,
+  onDraftChange,
 }: StopFormProps) {
   const searcher = useMemo(() => getAddressSearcher(), []);
+  const [step, setStep] = useState<1 | 2>(
+    fixedDestination ? 2 : (initialDraft?.step ?? (initialDestination ? 2 : 1)),
+  );
+  // Log Stop and End Day are the same mounted form with different
+  // props (the router reuses the tree), so a fixed destination must
+  // force step 2 regardless of the step state Log Stop left behind.
+  const effectiveStep: 1 | 2 = fixedDestination ? 2 : step;
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
-  const [searchNote, setSearchNote] = useState<string | null>(
-    searcher.configured ? null : "Address search is not set up — type the name and address below.",
+  const [searchState, setSearchState] = useState<"loading" | "unavailable" | null>(
+    !fixedDestination && !searcher.configured ? "unavailable" : null,
   );
-  const [name, setName] = useState(fixedDestination?.name ?? initialDestination?.name ?? "");
+  const [name, setName] = useState(
+    fixedDestination?.name ?? initialDraft?.name ?? initialDestination?.name ?? "",
+  );
   const [address, setAddress] = useState(
-    fixedDestination?.address ?? initialDestination?.address ?? "",
+    fixedDestination?.address ?? initialDraft?.address ?? initialDestination?.address ?? "",
   );
   const [destType, setDestType] = useState<LocationType>(
-    fixedDestination?.type ?? initialDestination?.type ?? "customer",
+    fixedDestination?.type ?? initialDraft?.destType ?? initialDestination?.type ?? "customer",
   );
   const [place, setPlace] = useState<Pick<StopDestination, "place_id" | "lat" | "lng">>({
-    place_id: initialDestination?.place_id ?? null,
-    lat: initialDestination?.lat ?? null,
-    lng: initialDestination?.lng ?? null,
+    place_id: initialDraft?.place_id ?? initialDestination?.place_id ?? null,
+    lat: initialDraft?.lat ?? initialDestination?.lat ?? null,
+    lng: initialDraft?.lng ?? initialDestination?.lng ?? null,
   });
-  const [odoDigits, setOdoDigits] = useState("");
-  const [parking, setParking] = useState<ParkingValue>(EMPTY_PARKING);
+  const [editingPlace, setEditingPlace] = useState(false);
+  const [odoDigits, setOdoDigits] = useState(initialDraft?.odoDigits ?? "");
+  const [parking, setParking] = useState<ParkingValue>(initialDraft?.parking ?? EMPTY_PARKING);
+  const [dismissedWarnings, setDismissedWarnings] = useState<ReadonlySet<LegWarningCode>>(
+    new Set(),
+  );
   const [pendingConfirm, setPendingConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const odoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (fixedDestination) {
-      odoInputRef.current?.focus();
-    } else {
-      searchInputRef.current?.focus();
+      focusField("stop-odometer");
     }
   }, [fixedDestination]);
 
   useEffect(() => {
     if (fixedDestination || !searcher.configured) return;
+    if (query.trim().length < MIN_QUERY_LENGTH) {
+      setSuggestions([]);
+      setSearchState(null);
+      return;
+    }
+    setSearchState("loading");
     let cancelled = false;
     void searcher.searchDebounced(query).then((result) => {
       if (cancelled) return;
       if (result.status === "ok") {
         setSuggestions(result.results);
-        setSearchNote(null);
+        setSearchState(null);
       } else {
+        // The reason is a technical string — never shown (audit F-03).
         setSuggestions([]);
-        setSearchNote(result.reason);
+        setSearchState("unavailable");
       }
     });
     return () => {
       cancelled = true;
     };
   }, [query, searcher, fixedDestination]);
+
+  // F-04: report every in-progress change to the draft owner.
+  useEffect(() => {
+    onDraftChange?.({
+      name,
+      address,
+      destType,
+      place_id: place.place_id ?? null,
+      lat: place.lat ?? null,
+      lng: place.lng ?? null,
+      odoDigits,
+      parking,
+      step: effectiveStep,
+    });
+  }, [name, address, destType, place, odoDigits, parking, effectiveStep, onDraftChange]);
 
   const completedOdometer = useMemo(() => {
     if (!/^\d+$/.test(odoDigits)) return null;
@@ -140,13 +245,28 @@ export default function StopForm({
     return legWarnings(prospective, historyLegs);
   }, [completedOdometer, name, address, destType, previousName, previousReading, historyLegs]);
 
+  const visibleWarnings = warnings.filter((warning) => !dismissedWarnings.has(warning.code));
+
+  const filteredRecents = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const all = recentStops.slice(0, 8);
+    if (needle === "") return all;
+    return all.filter(
+      (stop) =>
+        stop.name.toLowerCase().includes(needle) ||
+        stop.address.toLowerCase().includes(needle),
+    );
+  }, [recentStops, query]);
+
   function chooseSuggestion(suggestion: PlaceSuggestion) {
     setName(suggestion.name);
     setAddress(suggestion.address);
     setPlace({ place_id: suggestion.place_id, lat: suggestion.lat, lng: suggestion.lng });
     setSuggestions([]);
     setQuery("");
-    odoInputRef.current?.focus();
+    setEditingPlace(false);
+    setStep(2);
+    requestAnimationFrame(() => focusField("stop-odometer"));
   }
 
   function chooseRecent(stop: LocationRecord) {
@@ -155,7 +275,15 @@ export default function StopForm({
     setDestType(stop.type);
     setPlace({ place_id: stop.place_id, lat: stop.lat, lng: stop.lng });
     setSuggestions([]);
-    odoInputRef.current?.focus();
+    setEditingPlace(false);
+    setStep(2);
+    requestAnimationFrame(() => focusField("stop-odometer"));
+  }
+
+  function typeManually() {
+    setEditingPlace(true);
+    setStep(2);
+    requestAnimationFrame(() => focusField("stop-name"));
   }
 
   async function handleSave(confirmed: boolean) {
@@ -205,182 +333,246 @@ export default function StopForm({
 
   return (
     <div>
-      {!fixedDestination ? (
-        <>
-          <div className="field">
-            <label htmlFor="stop-search">Search for the address</label>
-            <input
-              id="stop-search"
-              ref={searchInputRef}
-              type="search"
-              autoComplete="off"
-              placeholder="Start typing an address…"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            <p className="field-hint">{ADDRESS_SEARCH_ATTRIBUTION}</p>
-            {searchNote ? <p className="field-hint">{searchNote}</p> : null}
-          </div>
-          {suggestions.length > 0 ? (
-            <ul className="suggestion-list" aria-label="Address suggestions">
-              {suggestions.map((suggestion) => (
-                <li key={suggestion.place_id ?? suggestion.address}>
-                  <button
-                    type="button"
-                    className="suggestion"
-                    onClick={() => chooseSuggestion(suggestion)}
-                  >
-                    <strong>{suggestion.name}</strong>
-                    <span>{suggestion.address}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+      {!fixedDestination && effectiveStep === 1 ? (
+        <div className="stop-step">
+          <SearchField
+            id="stop-search"
+            label="Where are you now?"
+            autoFocus
+            autoComplete="off"
+            placeholder="Start typing an address…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onClear={() => {
+              setQuery("");
+              setSuggestions([]);
+            }}
+          />
+          <p className="search-attribution">{ADDRESS_SEARCH_ATTRIBUTION}</p>
+
+          {searchState === "unavailable" ? (
+            <Banner kind="warning">
+              <span className="sync-error-text">
+                {searcher.configured
+                  ? "Address search isn't available right now. Check your connection, or type the address yourself."
+                  : "Address search isn't set up on this device, so type the address yourself."}
+              </span>
+              <Button variant="text" onClick={typeManually}>
+                Type it manually
+              </Button>
+            </Banner>
           ) : null}
-          {recentStops.length > 0 ? (
-            <div className="field">
-              <span className="field-label">Recent stops</span>
-              <div className="chip-row">
-                {recentStops.slice(0, 8).map((stop) => (
-                  <button
+
+          {filteredRecents.length > 0 ? (
+            <section aria-label="Recent stops">
+              <SectionHeader>Recent</SectionHeader>
+              <div className="result-list">
+                {filteredRecents.map((stop) => (
+                  <ListRow
                     key={stop.id}
-                    type="button"
-                    className="chip"
+                    icon={<MapPinIcon width={20} height={20} />}
+                    title={stop.name}
+                    subtitle={stop.address}
                     onClick={() => chooseRecent(stop)}
-                  >
-                    {stop.name}
-                  </button>
+                  />
                 ))}
               </div>
+            </section>
+          ) : null}
+
+          {searchState === "loading" ? (
+            <div aria-hidden="true">
+              <SectionHeader>Suggestions</SectionHeader>
+              <div className="result-list">
+                <Skeleton height={56} radius={12} />
+                <Skeleton height={56} radius={12} />
+                <Skeleton height={56} radius={12} />
+              </div>
             </div>
+          ) : suggestions.length > 0 ? (
+            <section aria-label="Address suggestions">
+              <SectionHeader>Suggestions</SectionHeader>
+              <div className="result-list">
+                {suggestions.map((suggestion) => (
+                  <ListRow
+                    key={suggestion.place_id ?? suggestion.address}
+                    icon={<MapPinIcon width={20} height={20} />}
+                    title={suggestion.name}
+                    subtitle={suggestion.address}
+                    onClick={() => chooseSuggestion(suggestion)}
+                  />
+                ))}
+              </div>
+            </section>
           ) : null}
-          <div className="field">
-            <label htmlFor="stop-name">Place name</label>
-            <input
-              id="stop-name"
-              type="text"
-              autoComplete="off"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="stop-address">Full address</label>
-            <input
-              id="stop-address"
-              type="text"
-              autoComplete="off"
-              value={address}
-              onChange={(event) => setAddress(event.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="stop-type">This stop is</label>
-            <select
-              id="stop-type"
-              value={destType}
-              onChange={(event) => setDestType(event.target.value as LocationType)}
-            >
-              <option value="customer">A customer</option>
-              <option value="office">The Office</option>
-            </select>
-          </div>
-        </>
-      ) : (
-        <p className="notice">
-          Destination: <strong>{fixedDestination.name}</strong> — {fixedDestination.address}
-        </p>
-      )}
 
-      <div className="field">
-        <label htmlFor="stop-odometer">Odometer at {fixedDestination ? "Home" : "this stop"}</label>
-        <p className="field-hint">Previous reading: {previousReading}</p>
-        <input
-          id="stop-odometer"
-          ref={odoInputRef}
-          className="big-number-input"
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          autoComplete="off"
-          value={odoDigits}
-          onChange={(event) => setOdoDigits(event.target.value.replace(/[^0-9]/g, ""))}
-        />
-        {completedOdometer !== null ? (
-          <p className="completed-reading" aria-live="polite">
-            Will save as <strong>{completedOdometer}</strong>
-            {completedOdometer !== previousReading
-              ? ` (${completedOdometer - previousReading} km)`
-              : ""}
-          </p>
-        ) : (
-          <p className="field-hint">Type the full reading or just the last digits.</p>
-        )}
-      </div>
+          <Button variant="text" onClick={typeManually}>
+            Type it manually
+          </Button>
+        </div>
+      ) : null}
 
-      {warnings.length > 0 ? (
-        <div className="notice notice-warning" role="alert">
-          {warnings.map((warning) => (
-            <p key={warning.code}>{warning.message}</p>
+      {effectiveStep === 2 ? (
+        <div className="stop-step">
+          {fixedDestination ? (
+            <Card className="place-card">
+              <div className="place-card-main">
+                <p className="place-card-name">{fixedDestination.name}</p>
+                <p className="place-card-address">{fixedDestination.address}</p>
+              </div>
+            </Card>
+          ) : (
+            <>
+              <Card className="place-card">
+                <div className="place-card-main">
+                  <p className="place-card-name">{name || "New place"}</p>
+                  <p className="place-card-address">{address}</p>
+                </div>
+                <button
+                  type="button"
+                  className="place-edit-btn"
+                  aria-label="Edit place details"
+                  aria-expanded={editingPlace}
+                  onClick={() => setEditingPlace((open) => !open)}
+                >
+                  <PencilIcon width={20} height={20} />
+                </button>
+              </Card>
+              {editingPlace ? (
+                <div className="place-editor">
+                  <TextField
+                    id="stop-name"
+                    label="Place name"
+                    autoComplete="off"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                  <TextField
+                    id="stop-address"
+                    label="Full address"
+                    autoComplete="off"
+                    value={address}
+                    onChange={(event) => setAddress(event.target.value)}
+                  />
+                  <SegmentedControl
+                    label="This stop is"
+                    value={destType === "office" ? "office" : "customer"}
+                    onChange={(value) => setDestType(value as LocationType)}
+                    options={[
+                      { value: "customer", label: "A customer" },
+                      { value: "office", label: "The Office" },
+                    ]}
+                  />
+                  <Button variant="text" onClick={() => setEditingPlace(false)}>
+                    Done
+                  </Button>
+                </div>
+              ) : null}
+              <Button
+                variant="text"
+                onClick={() => {
+                  setStep(1);
+                  requestAnimationFrame(() => focusField("stop-search"));
+                }}
+              >
+                Change place
+              </Button>
+            </>
+          )}
+
+          <div>
+            <p className="odo-previous">
+              Previous reading: <strong className="ds-num">{previousReading}</strong> at{" "}
+              {previousName}
+            </p>
+            <NumericField
+              id="stop-odometer"
+              label={fixedDestination ? "Odometer at Home" : "Odometer at this stop"}
+              large
+              value={odoDigits}
+              onChange={(event) => setOdoDigits(event.target.value.replace(/[^0-9]/g, ""))}
+            />
+            {completedOdometer !== null ? (
+              <p className="completed-reading" aria-live="polite">
+                Will save as <strong className="ds-num">{completedOdometer}</strong>
+                {completedOdometer !== previousReading
+                  ? ` (${completedOdometer - previousReading} km)`
+                  : ""}
+              </p>
+            ) : (
+              <p className="odo-hint">Type the full reading or just the last digits.</p>
+            )}
+          </div>
+
+          {visibleWarnings.map((warning) => (
+            <div key={warning.code} className="inline-warning" role="alert">
+              <p>{plainWarning(warning, completedOdometer ?? previousReading, previousReading)}</p>
+              <div className="inline-warning-actions">
+                <Button variant="text" onClick={() => focusField("stop-odometer")}>
+                  Fix
+                </Button>
+                <Button
+                  variant="text"
+                  onClick={() =>
+                    setDismissedWarnings((prev) => new Set(prev).add(warning.code))
+                  }
+                >
+                  Keep
+                </Button>
+              </div>
+            </div>
           ))}
-          <p>Warnings only — you can still save.</p>
-        </div>
-      ) : null}
 
-      {destType !== "home" && !fixedDestination ? (
-        <ParkingRow
-          value={parking}
-          onChange={setParking}
-          recentAmountsCents={recentAmountsCents}
-          recentNotes={recentNotes}
-        />
-      ) : null}
+          {destType !== "home" && !fixedDestination ? (
+            <ParkingRow
+              value={parking}
+              onChange={setParking}
+              recentAmountsCents={recentAmountsCents}
+              recentNotes={recentNotes}
+            />
+          ) : null}
 
-      {error ? (
-        <p className="notice notice-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-
-      {pendingConfirm ? (
-        <div className="notice" role="alertdialog" aria-label="Confirm parking amount">
-          <p>
-            Parking of {formatParking(parkingCentsOf(parking) ?? 0)} is over $100.00. Save it
-            anyway?
-          </p>
-          <div className="button-row">
-            <button type="button" className="button" onClick={() => setPendingConfirm(false)}>
-              Go back
-            </button>
-            <button
-              type="button"
-              className="button button-primary"
-              onClick={() => {
-                setPendingConfirm(false);
-                void handleSave(true);
-              }}
-            >
-              Yes, save it
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="action-stack">
-          <button
-            type="button"
-            className="button button-primary button-large"
-            disabled={saving}
-            onClick={() => void handleSave(false)}
-          >
-            {saving ? "Saving…" : submitLabel}
-          </button>
-          {onHomeShortcut ? (
-            <button type="button" className="button" onClick={onHomeShortcut}>
-              Home — end the day
-            </button>
+          {error ? (
+            <Banner kind="warning">
+              <span role="alert">{error}</span>
+            </Banner>
           ) : null}
         </div>
-      )}
+      ) : null}
+
+      <ConfirmDialog
+        open={pendingConfirm}
+        title="Parking over $100"
+        message={`Parking of ${formatParking(parkingCentsOf(parking) ?? 0)} is over $100.00. Save it anyway?`}
+        confirmLabel="Yes, save it"
+        cancelLabel="Go back"
+        onCancel={() => setPendingConfirm(false)}
+        onConfirm={() => {
+          setPendingConfirm(false);
+          void handleSave(true);
+        }}
+      />
+
+      {effectiveStep === 2 ? (
+        <DockBar>
+          <div className="dock-stack">
+            <Button loading={saving} onClick={() => void handleSave(false)}>
+              {submitLabel}
+            </Button>
+            {onHomeShortcut ? (
+              <Button variant="secondary" onClick={onHomeShortcut}>
+                Home — end the day
+              </Button>
+            ) : null}
+          </div>
+        </DockBar>
+      ) : onHomeShortcut ? (
+        <DockBar>
+          <Button variant="secondary" onClick={onHomeShortcut}>
+            Home — end the day
+          </Button>
+        </DockBar>
+      ) : null}
     </div>
   );
 }

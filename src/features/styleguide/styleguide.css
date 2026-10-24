@@ -1,0 +1,140 @@
+/*
+ * Styleguide page layout only (UI Polish Phase 1). Scoped under .ds-sg
+ * and built from the same tokens as the components it reviews.
+ */
+
+.ds-sg {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  min-height: 100dvh;
+}
+
+.ds-sg-inner {
+  align-content: start;
+  display: grid;
+  gap: var(--sp-6);
+  margin: 0 auto;
+  max-width: 430px;
+  padding: var(--sp-4) var(--sp-4) var(--sp-6);
+}
+
+.ds-sg-title {
+  font-size: var(--fs-title1);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  margin: 0;
+}
+
+.ds-sg-lede {
+  color: var(--muted);
+  line-height: var(--lh-body);
+  margin: var(--sp-2) 0 0;
+}
+
+.ds-sg-section {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.ds-sg-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.ds-sg-stack {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.ds-sg-swatches {
+  display: grid;
+  gap: var(--sp-2);
+  grid-template-columns: 1fr 1fr;
+}
+
+.ds-sg-swatch {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+
+.ds-sg-swatch-color {
+  height: 44px;
+}
+
+.ds-sg-swatch-label {
+  color: var(--muted);
+  display: grid;
+  font-size: var(--fs-caption);
+  gap: 2px;
+  padding: var(--sp-2);
+}
+
+.ds-sg-swatch-name {
+  color: var(--text);
+  font-weight: var(--fw-semibold);
+}
+
+.ds-sg-type-display {
+  font-size: var(--fs-display);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+}
+
+.ds-sg-type-title2 {
+  font-size: var(--fs-title2);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+}
+
+.ds-sg-type-title3 {
+  font-size: var(--fs-title3);
+  font-weight: var(--fw-semibold);
+}
+
+.ds-sg-type-small {
+  font-size: var(--fs-small);
+}
+
+.ds-sg-type-caption {
+  color: var(--muted);
+  font-size: var(--fs-caption);
+}
+
+.ds-sg-icons {
+  display: grid;
+  gap: var(--sp-3);
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.ds-sg-icon {
+  color: var(--text);
+  display: grid;
+  font-size: var(--fs-caption);
+  gap: var(--sp-1);
+  justify-items: center;
+  text-align: center;
+}
+
+.ds-sg-panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  color: var(--text);
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+}
+
+.ds-sg-panel-name {
+  color: var(--muted);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

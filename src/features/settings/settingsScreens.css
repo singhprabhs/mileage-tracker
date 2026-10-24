@@ -1,0 +1,52 @@
+/*
+ * Settings screen styles (UI Polish Phase 4). Tokens only; the
+ * components themselves come from the design system. Sections are
+ * spaced groups; cards hold text and stacked actions; the location
+ * sheets stack their fields like the forms they miniaturise.
+ */
+
+.settings-section {
+  margin-bottom: var(--sp-5);
+}
+
+.settings-section .ds-banner {
+  margin-bottom: var(--sp-3);
+}
+
+.settings-note {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  margin: var(--sp-2) 0 0;
+}
+
+.settings-card-text {
+  margin: 0 0 var(--sp-3);
+}
+
+.settings-card-text:last-child {
+  margin-bottom: 0;
+}
+
+.settings-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.settings-card-actions:last-child {
+  margin-bottom: 0;
+}
+
+.settings-sheet {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-sheet .ds-btn {
+  margin-top: var(--sp-2);
+}
+
+.settings-submit .ds-btn {
+  width: 100%;
+}

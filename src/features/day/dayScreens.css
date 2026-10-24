@@ -1,0 +1,718 @@
+/*
+ * Core-flow screen styles — UI Polish Phase 3.
+ *
+ * Today, Start Day, Log Stop and End Day, restyled on the design
+ * system: every colour, size, spacing, radius and duration comes from
+ * src/styles/tokens.css — no hard-coded values. Classes here are
+ * screen-layout only; interactive elements are the shared components
+ * in src/components/. Imported after shell.css (see main.tsx) so the
+ * dock-aware shell padding layers over the Phase 2 safe-area rules.
+ */
+
+/* ---------- Utilities & shared chrome ---------- */
+
+.sr-only {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+/* The one Back control: chevron + label, ≥48 px target (audit F-09). */
+.ds-backlink {
+  align-items: center;
+  border-radius: var(--r-input);
+  color: var(--accent);
+  display: inline-flex;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  gap: var(--sp-1);
+  margin-left: calc(-1 * var(--sp-2));
+  min-height: var(--target);
+  padding: var(--sp-2);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.ds-backlink:active {
+  background: var(--accent-soft);
+}
+
+.ds-backlink:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Docked bottom action bar: fixed, centred on the app column, clear
+   of the Home bar, riding above the keyboard via --keyboard-inset. */
+.dock-bar {
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  bottom: 0;
+  left: 50%;
+  padding: var(--sp-3) var(--screen-pad)
+    calc(var(--sp-3) + env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px));
+  position: fixed;
+  transform: translateX(-50%);
+  width: min(100%, 430px);
+  z-index: 30;
+}
+
+.dock-bar .ds-btn {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dock-bar {
+    transition: padding-bottom var(--dur) var(--ease-out);
+  }
+}
+
+/* Reserve room for the dock so page content never hides behind it. */
+.app-shell--dock {
+  padding-bottom: calc(
+    120px + env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px)
+  );
+}
+
+/* Log Stop's dock stacks a second action (Home — end the day). */
+.app-shell--dock-lg {
+  padding-bottom: calc(
+    196px + env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px)
+  );
+}
+
+/* Toast dock (Undo): same footprint rules as the Phase 2 update
+   toast; --above-bar lifts it clear of a docked action bar. */
+.ds-toast-dock {
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px));
+  left: 50%;
+  max-width: 398px;
+  position: fixed;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  z-index: var(--z-toast);
+}
+
+.ds-toast-dock--above-bar {
+  bottom: calc(104px + env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ds-toast-dock {
+    transition: bottom var(--dur) var(--ease-out);
+  }
+}
+
+/* ---------- Today ---------- */
+
+.today-topbar {
+  align-items: center;
+  display: flex;
+  gap: var(--sp-3);
+  justify-content: space-between;
+  margin-bottom: var(--sp-3);
+}
+
+.today-topbar-date {
+  font-size: var(--fs-title3);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  margin: 0;
+}
+
+.today-topbar-actions {
+  align-items: center;
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.today-settings {
+  align-items: center;
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  display: inline-flex;
+  height: var(--target);
+  justify-content: center;
+  text-decoration: none;
+  width: var(--target);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.today-settings:active {
+  background: var(--neutral-soft);
+  color: var(--text);
+}
+
+.today-settings:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.sync-error-banner {
+  margin-bottom: var(--sp-4);
+}
+
+.sync-error-banner .ds-banner {
+  align-items: center;
+}
+
+.sync-error-text {
+  display: block;
+}
+
+.sync-error-banner .ds-btn {
+  margin-top: var(--sp-1);
+}
+
+.today-still-open {
+  color: var(--muted);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  margin: 0 0 var(--sp-4);
+}
+
+/* Summary figures: value over label, per the brief. */
+.summary-figures {
+  display: flex;
+  gap: var(--sp-4);
+  margin: 0;
+}
+
+.summary-figure {
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+}
+
+.summary-value {
+  font-size: var(--fs-title1);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.summary-label {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  margin-top: var(--sp-1);
+}
+
+.today-complete {
+  align-items: center;
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.today-complete-icon {
+  align-items: center;
+  background: var(--success-soft);
+  border-radius: 50%;
+  color: var(--success);
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.today-complete-title {
+  font-size: var(--fs-title3);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  margin: 0;
+}
+
+.today-complete-text {
+  color: var(--muted);
+  line-height: var(--lh-body);
+  margin: var(--sp-1) 0 0;
+}
+
+/* Legs timeline: a dot per stop joined by a thin line. */
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.timeline-item {
+  padding-left: var(--sp-6);
+  position: relative;
+}
+
+.timeline-item::before {
+  background: var(--border);
+  bottom: -1px;
+  content: "";
+  left: 6px;
+  position: absolute;
+  top: 26px;
+  width: 2px;
+}
+
+.timeline-item:last-child::before {
+  display: none;
+}
+
+.timeline-dot {
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  height: 14px;
+  left: 0;
+  position: absolute;
+  top: 20px;
+  width: 14px;
+}
+
+.timeline-row {
+  align-items: flex-start;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-card);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  gap: var(--sp-3);
+  min-height: 56px;
+  padding: var(--sp-3) var(--sp-2);
+  text-align: left;
+  width: 100%;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.timeline-row:active {
+  background: var(--neutral-soft);
+}
+
+.timeline-row:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.timeline-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.timeline-name {
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-body);
+}
+
+.timeline-address {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  line-height: var(--lh-body);
+}
+
+.timeline-side {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: var(--sp-1);
+}
+
+.timeline-distance {
+  font-weight: var(--fw-semibold);
+}
+
+.today-nostops {
+  color: var(--muted);
+  line-height: var(--lh-body);
+  margin: 0 0 var(--sp-4);
+}
+
+.today-delete-error {
+  color: var(--danger);
+  line-height: var(--lh-body);
+  margin: 0 0 var(--sp-3);
+}
+
+/* Full-width navigation links with a ≥48 px target (audit F-09). */
+.today-navlink {
+  align-items: center;
+  border-radius: var(--r-card);
+  color: var(--text);
+  display: flex;
+  font-weight: var(--fw-semibold);
+  gap: var(--sp-2);
+  min-height: var(--target);
+  padding: var(--sp-2) var(--sp-1);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.today-navlink:active {
+  background: var(--neutral-soft);
+}
+
+.today-navlink:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.today-navlink svg:last-child {
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.today-footer {
+  margin-top: var(--sp-6);
+}
+
+.today-account {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  line-height: var(--lh-body);
+  margin: var(--sp-3) 0 0;
+}
+
+.today-account a {
+  color: var(--accent);
+  font-weight: var(--fw-semibold);
+}
+
+/* Leg detail sheet */
+.leg-sheet-route {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-body);
+  margin: 0 0 var(--sp-1);
+}
+
+.leg-sheet-meta {
+  line-height: var(--lh-body);
+  margin: 0 0 var(--sp-1);
+}
+
+.leg-sheet-address {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  line-height: var(--lh-body);
+  margin: 0 0 var(--sp-3);
+}
+
+.leg-sheet-actions {
+  display: grid;
+  gap: var(--sp-2);
+  grid-template-columns: 1fr 1fr;
+  margin-top: var(--sp-4);
+}
+
+.leg-sheet-actions .ds-btn {
+  min-height: var(--target);
+}
+
+/* ---------- Shared form scaffold (Start / Log Stop / End Day) ---------- */
+
+.screen-title {
+  font-size: var(--fs-title1);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  margin: var(--sp-2) 0 var(--sp-1);
+}
+
+.screen-date {
+  color: var(--muted);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  margin: 0 0 var(--sp-5);
+}
+
+.form-error {
+  color: var(--danger);
+  line-height: var(--lh-body);
+  margin: var(--sp-3) 0 0;
+}
+
+/* Summary card rows: muted label left, tabular value right. */
+.summary-rows {
+  margin: 0;
+}
+
+.summary-row {
+  align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+  padding: var(--sp-2) 0;
+}
+
+.summary-row + .summary-row {
+  border-top: 1px solid var(--border);
+}
+
+.summary-row dt {
+  color: var(--muted);
+}
+
+.summary-row dd {
+  font-size: var(--fs-title3);
+  font-weight: var(--fw-semibold);
+  margin: 0;
+}
+
+/* End Day completion: check badge + title, one short pop-in that is
+   a plain fade (or nothing) under reduced motion. */
+.success-head {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  text-align: center;
+}
+
+.success-check {
+  align-items: center;
+  background: var(--success-soft);
+  border-radius: 50%;
+  color: var(--success);
+  display: inline-flex;
+  height: 56px;
+  justify-content: center;
+  width: 56px;
+}
+
+.success-title {
+  font-size: var(--fs-title2);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .success-check {
+    animation: ds-success-pop var(--dur) var(--ease-out);
+  }
+
+  @keyframes ds-success-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+/* Two-action dock (Edit + primary): the primary takes the room. */
+.dock-split {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.dock-split .ds-btn:first-child {
+  flex: 0 0 34%;
+}
+
+.dock-split .ds-btn:last-child {
+  flex: 1;
+}
+
+/* Read-only timeline row (Day Summary legs): same geometry as the
+   Today button row, without the interaction. */
+.timeline-row--static {
+  cursor: default;
+}
+
+.timeline-row--static:active {
+  background: transparent;
+}
+
+/* ---------- Log Stop (two-step form) ---------- */
+
+.stop-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.search-attribution {
+  color: var(--muted);
+  font-size: var(--fs-caption);
+  margin: calc(-1 * var(--sp-2)) 0 0;
+}
+
+/* Grouped search results: one row per place,hairline-separated. */
+.result-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.result-list .ds-row + .ds-row {
+  border-top: 1px solid var(--border);
+}
+
+/* The chosen place, step 2: name + address with the pencil edit. */
+.place-card {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.place-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.place-card-name {
+  font-size: var(--fs-title3);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  margin: 0;
+}
+
+.place-card-address {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  line-height: var(--lh-body);
+  margin: var(--sp-1) 0 0;
+}
+
+.place-edit-btn {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-pill);
+  color: var(--accent);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: var(--target);
+  justify-content: center;
+  width: var(--target);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.place-edit-btn:active {
+  background: var(--accent-soft);
+}
+
+.place-edit-btn:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.place-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.place-editor .ds-btn {
+  align-self: flex-start;
+}
+
+/* Odometer block: previous reading muted above the big field, the
+   live-completed reading below it. */
+.odo-previous {
+  color: var(--muted);
+  line-height: var(--lh-body);
+  margin: 0 0 var(--sp-2);
+}
+
+.odo-previous strong {
+  color: var(--text);
+}
+
+.completed-reading {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  margin: var(--sp-2) 0 0;
+}
+
+.odo-hint {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  line-height: var(--lh-body);
+  margin: var(--sp-2) 0 0;
+}
+
+/* Domain warnings, inline and in plain words, with Fix / Keep. */
+.inline-warning {
+  background: var(--warning-soft);
+  border-radius: var(--r-card);
+  color: var(--warning);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.inline-warning p {
+  line-height: var(--lh-body);
+  margin: 0;
+}
+
+.inline-warning-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+}
+
+.inline-warning-actions .ds-btn {
+  color: var(--warning);
+  min-height: var(--target);
+  padding-left: 0;
+}
+
+/* Parking: the collapsed row reads as one tappable list row; the
+   editor stacks its fields with DS chips for the recents. */
+.parking-collapsed {
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+}
+
+.parking-editor {
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+}
+
+.parking-editor .ds-btn {
+  align-self: flex-start;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+/* Dock with a stacked secondary action (Home — end the day). */
+.dock-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* Edit Leg: the destructive action sits in the flow, clear of the
+   docked Save (Phase 4). */
+.edit-leg-delete {
+  margin-top: var(--sp-5);
+}
+
+.edit-leg-delete .ds-btn {
+  width: 100%;
+}

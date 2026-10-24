@@ -5,6 +5,7 @@ import { addLegs, closeDay, createDay } from "../src/data/repositories/days";
 import { saveProfileWithLocations } from "../src/data/repositories/profiles";
 import {
   currentMonthRange,
+  lastMonthRange,
   loadHistory,
 } from "../src/features/history/historyService";
 import { fixtureA, fixtureB, fixtureC } from "./fixtures";
@@ -55,6 +56,23 @@ describe("currentMonthRange", () => {
   });
 });
 
+describe("lastMonthRange", () => {
+  it("returns the full previous calendar month, across the year boundary", () => {
+    expect(lastMonthRange(new Date(2026, 9, 23))).toEqual({
+      start: "2026-09-01",
+      end: "2026-09-30",
+    });
+    expect(lastMonthRange(new Date(2026, 0, 15))).toEqual({
+      start: "2025-12-01",
+      end: "2025-12-31",
+    });
+    expect(lastMonthRange(new Date(2026, 2, 1))).toEqual({
+      start: "2026-02-01",
+      end: "2026-02-28",
+    });
+  });
+});
+
 describe("loadHistory", () => {
   it("lists per-day totals newest first, plus period totals (Fixtures A + B)", async () => {
     const database = freshDb();
@@ -75,6 +93,11 @@ describe("loadHistory", () => {
     expect(history.totals.odometerStart).toBe(155301);
     expect(history.totals.odometerEnd).toBe(155470);
     expect(history.hasParking).toBe(false);
+    // Each day carries its legs in driving order for the expandable
+    // History cards (UI Polish Phase 4).
+    expect(history.days[0]?.legs).toHaveLength(fixtureB.length);
+    expect(history.days[1]?.legs).toHaveLength(fixtureA.length);
+    expect(history.days[1]?.legs[0]?.from_name).toBe("Home");
   });
 
   it("respects the range boundaries", async () => {

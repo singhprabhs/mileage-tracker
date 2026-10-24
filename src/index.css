@@ -48,27 +48,17 @@ a {
   }
 }
 
-/* Forms: mobile first, touch targets at least 48px. */
-.field {
-  margin: 0 0 16px;
-}
-
-.field label {
-  display: block;
-  font-weight: 600;
-  margin: 0 0 6px;
-}
-
-.field input {
-  font: inherit;
-  min-height: 48px;
-  padding: 10px 12px;
-  width: 100%;
-  border: 1px solid currentColor;
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
-}
+/* What remains below is the small set of pre-design-system classes that
+   are still live after the UI Polish restyles (verified by usage search
+   in Phase 5; everything else moved to the ds-* components and the
+   per-screen stylesheets, whose rules fully shadow the old ones):
+   - .field-hint: Edit Leg's hint text under the completed reading.
+   - .button / .notice / .install-hint*: the InstallCard's non-iOS
+     one-time notice (the iOS path is a DS card).
+   - .chip-row: contributes the bottom margin the screen stylesheets'
+     .chip-row rules don't set (ParkingRow recents, History periods).
+   - .parking-editor: contributes margin/padding alongside
+     dayScreens.css's flex layout for ParkingRow's editor. */
 
 .field-hint {
   font-size: 0.9rem;
@@ -88,13 +78,6 @@ a {
   width: 100%;
 }
 
-.button-primary {
-  background: #0f4c81;
-  border-color: #0f4c81;
-  color: #ffffff;
-  font-weight: 600;
-}
-
 .button:disabled {
   opacity: 0.6;
 }
@@ -104,28 +87,6 @@ a {
   border-radius: 8px;
   padding: 12px;
   margin: 16px 0;
-}
-
-.notice-error {
-  font-weight: 600;
-}
-
-.sync-status {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  font-size: 0.95rem;
-  gap: 8px;
-  margin: 8px 0 0;
-}
-
-.sync-status-error {
-  font-weight: 600;
-}
-
-.sync-retry {
-  min-height: 48px;
-  padding: 8px 16px;
 }
 
 .install-hint {
@@ -149,228 +110,6 @@ a {
   width: auto;
 }
 
-.account-section {
-  margin-top: 32px;
-}
-
-.home-header {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-}
-
-.icon-link {
-  align-items: center;
-  display: inline-flex;
-  font-size: 1.6rem;
-  justify-content: center;
-  min-height: 48px;
-  min-width: 48px;
-  text-decoration: none;
-}
-
-.profile-line {
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.summary-list {
-  margin: 16px 0;
-}
-
-.summary-list div {
-  margin: 0 0 12px;
-}
-
-.summary-list dt {
-  font-size: 0.9rem;
-  font-weight: 600;
-  opacity: 0.8;
-}
-
-.summary-list dd {
-  margin: 2px 0 0;
-}
-
-/* Phase 3: day flow (Today, Start Day, Log Stop, Edit Leg). */
-
-.today-date {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 4px 0 12px;
-}
-
-.stats-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr 1fr;
-  margin: 16px 0;
-}
-
-.stats-grid div {
-  border: 1px solid currentColor;
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-
-.stats-grid dt {
-  font-size: 0.9rem;
-  font-weight: 600;
-  opacity: 0.8;
-}
-
-.stats-grid dd {
-  margin: 2px 0 0;
-}
-
-.stat-number {
-  font-size: 1.6rem;
-  font-weight: 700;
-}
-
-.button-large {
-  font-size: 1.25rem;
-  min-height: 64px;
-}
-
-.action-stack {
-  display: grid;
-  gap: 12px;
-  margin: 20px 0;
-}
-
-.button-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.button-row .button {
-  flex: 1 1 140px;
-  width: auto;
-}
-
-.button-danger {
-  border-color: #b3261e;
-  color: #b3261e;
-}
-
-/* The light-scheme danger red is only ~3:1 on a dark background; this
-   tint keeps the same meaning at AA contrast. (Placed after the base
-   rule so it wins the cascade at equal specificity.) */
-@media (prefers-color-scheme: dark) {
-  .button-danger {
-    border-color: #f2b8b5;
-    color: #f2b8b5;
-  }
-}
-
-.big-number-input {
-  font-size: 1.8rem;
-  font-weight: 700;
-}
-
-.field select {
-  background: transparent;
-  border: 1px solid currentColor;
-  border-radius: 8px;
-  color: inherit;
-  font: inherit;
-  min-height: 48px;
-  padding: 10px 12px;
-  width: 100%;
-}
-
-.field-label {
-  display: block;
-  font-weight: 600;
-  margin: 0 0 6px;
-}
-
-.completed-reading {
-  font-size: 1.1rem;
-  margin: 8px 0 0;
-}
-
-.notice-warning p {
-  margin: 4px 0;
-}
-
-.leg-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.leg-row {
-  border-bottom: 1px solid currentColor;
-}
-
-.leg-link {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  min-height: 48px;
-  padding: 10px 4px;
-  text-decoration: none;
-}
-
-.leg-route {
-  font-weight: 600;
-}
-
-.leg-numbers {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.parking-badge {
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  margin-left: 8px;
-  padding: 2px 8px;
-}
-
-.leg-detail {
-  border-bottom: 1px solid currentColor;
-  padding: 12px 0;
-}
-
-.leg-meta {
-  font-variant-numeric: tabular-nums;
-  margin-top: 2px;
-}
-
-.leg-address {
-  font-size: 0.9rem;
-  margin: 2px 0 8px;
-  opacity: 0.85;
-}
-
-.suggestion-list {
-  list-style: none;
-  margin: -8px 0 16px;
-  padding: 0;
-}
-
-.suggestion {
-  background: transparent;
-  border: 1px solid currentColor;
-  border-radius: 8px;
-  color: inherit;
-  cursor: pointer;
-  display: grid;
-  font: inherit;
-  gap: 2px;
-  margin: 0 0 8px;
-  min-height: 48px;
-  padding: 10px 12px;
-  text-align: left;
-  width: 100%;
-}
-
 .chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -378,147 +117,9 @@ a {
   margin: 0 0 12px;
 }
 
-.chip {
-  background: transparent;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  min-height: 48px;
-  padding: 8px 14px;
-}
-
-.parking-row {
-  background: transparent;
-  border: 1px solid currentColor;
-  border-radius: 8px;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  margin: 0 0 16px;
-  min-height: 48px;
-  padding: 10px 12px;
-  text-align: left;
-  width: 100%;
-}
-
 .parking-editor {
   border: 1px solid currentColor;
   border-radius: 8px;
   margin: 0 0 16px;
   padding: 12px;
-}
-
-.parking-editor legend {
-  font-weight: 600;
-  padding: 0 6px;
-}
-
-.undo-snackbar {
-  align-items: center;
-  background: #0f4c81;
-  border-radius: 8px;
-  bottom: 16px;
-  color: #ffffff;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  left: 50%;
-  max-width: 398px;
-  padding: 12px 16px;
-  position: fixed;
-  transform: translateX(-50%);
-  width: calc(100% - 32px);
-  z-index: 10;
-}
-
-.undo-button {
-  background: transparent;
-  border: 1px solid #ffffff;
-  border-radius: 8px;
-  color: #ffffff;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 700;
-  min-height: 48px;
-  padding: 8px 16px;
-}
-
-.today-footer {
-  margin-top: 32px;
-}
-
-/* Phase 5: History and reports. */
-
-.date-range {
-  display: grid;
-  gap: 12px;
-  /* minmax(0, …) plus min-width: 0 below: native date inputs have an
-     intrinsic minimum width that otherwise forces the tracks wider
-     than the screen on iOS, squeezing the second field into a sliver
-     that overlaps the first. The 9.5rem minimum is in rem on purpose:
-     it grows with the text size, so when large system text makes a
-     half-screen date field too narrow for its own value (the native
-     control clips the year), the pair stacks full-width instead. At
-     the default text size two columns fit on every phone width. */
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
-}
-
-.date-range .field {
-  min-width: 0;
-}
-
-.date-range input {
-  font: inherit;
-  min-height: 48px;
-  min-width: 0;
-  padding: 10px 12px;
-  width: 100%;
-  border: 1px solid currentColor;
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
-}
-
-.history-day-link {
-  display: block;
-  min-height: 48px;
-  text-decoration: none;
-}
-
-.history-day-link .leg-route,
-.history-day-link .leg-meta {
-  display: block;
-}
-
-.report-preview {
-  border: 1px solid currentColor;
-  border-radius: 8px;
-  margin-top: 16px;
-  padding: 12px;
-}
-
-.report-table-scroll {
-  margin: 12px 0;
-  overflow-x: auto;
-}
-
-.report-table {
-  border-collapse: collapse;
-  font-size: 0.85rem;
-  min-width: 560px;
-  width: 100%;
-}
-
-.report-table th,
-.report-table td {
-  border: 1px solid;
-  padding: 6px 8px;
-  text-align: left;
-  vertical-align: top;
-}
-
-.report-table .report-num {
-  text-align: right;
 }

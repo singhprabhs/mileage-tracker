@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { db } from "../../data";
+import { Toast } from "../../components";
 import { restoreDaySnapshot } from "./dayService";
 import { dropUndoSnapshot, peekUndoSnapshot } from "./undoStore";
 
 interface UndoSnackbarProps {
   /** Called after an undo restores the day, so the page can reload its data. */
   onUndone: () => void;
+  /** Lift the toast above a docked bottom action bar on the host screen. */
+  aboveDock?: boolean;
 }
 
 interface UndoLocationState {
@@ -15,12 +18,13 @@ interface UndoLocationState {
 }
 
 /**
- * The 10-second Undo offer shown after a save or delete. The token in the
+ * The 10-second Undo offer shown after a save or delete, rendered as
+ * the design system's Toast (UI Polish Phase 3). The token in the
  * navigation state names the pre-change snapshot parked in the undo
- * store; Undo restores it exactly, and the offer removes itself when the
- * 10 seconds run out.
+ * store; Undo restores it exactly, and the offer removes itself when
+ * the 10 seconds run out.
  */
-export default function UndoSnackbar({ onUndone }: UndoSnackbarProps) {
+export default function UndoSnackbar({ onUndone, aboveDock = false }: UndoSnackbarProps) {
   const location = useLocation();
   const state = (location.state ?? {}) as UndoLocationState;
   const token = state.undoToken ?? null;
@@ -53,18 +57,18 @@ export default function UndoSnackbar({ onUndone }: UndoSnackbarProps) {
       dropUndoSnapshot(token);
       setVisible(false);
       onUndone();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Undo did not work.");
+    } catch {
+      setError("Undo didn't work — your saved data is unchanged.");
     }
   }
 
   return (
-    <div className="undo-snackbar" role="status">
-      <span>{state.undoMessage ?? "Change saved."}</span>
-      <button type="button" className="undo-button" onClick={() => void handleUndo()}>
-        Undo
-      </button>
-      {error ? <span className="notice-error">{error}</span> : null}
+    <div className={`ds-toast-dock${aboveDock ? " ds-toast-dock--above-bar" : ""}`}>
+      <Toast
+        message={error ?? state.undoMessage ?? "Change saved."}
+        actionLabel={error ? undefined : "Undo"}
+        onAction={error ? undefined : () => void handleUndo()}
+      />
     </div>
   );
 }

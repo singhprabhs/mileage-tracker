@@ -93,6 +93,15 @@ export function formatDateLabel(isoDate: string): string {
 
 const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+/** Weekday name for a calendar date, computed in UTC (see below). */
+function weekdayName(isoDate: string): string {
+  const parts = isoDate.split("-").map(Number);
+  const year = parts[0] ?? 0;
+  const month = parts[1] ?? 1;
+  const day = parts[2] ?? 1;
+  return WEEKDAY_NAMES[new Date(Date.UTC(year, month - 1, day)).getUTCDay()] ?? "";
+}
+
 /**
  * "Thu, Jul 02, 2026" style label: the single date rendering used on
  * History day rows. The weekday is computed from the calendar date in
@@ -101,10 +110,12 @@ const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export function formatFullDateLabel(isoDate: string): string {
   const parts = isoDate.split("-").map(Number);
   const year = parts[0] ?? 0;
-  const month = parts[1] ?? 1;
-  const day = parts[2] ?? 1;
-  const weekday = WEEKDAY_NAMES[new Date(Date.UTC(year, month - 1, day)).getUTCDay()] ?? "";
-  return `${weekday}, ${formatDateLabel(isoDate)}, ${year}`;
+  return `${weekdayName(isoDate)}, ${formatDateLabel(isoDate)}, ${year}`;
+}
+
+/** "Thu, Jul 02" — the compact form for top bars and short mentions. */
+export function formatShortDateLabel(isoDate: string): string {
+  return `${weekdayName(isoDate)}, ${formatDateLabel(isoDate)}`;
 }
 
 /**

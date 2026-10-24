@@ -1,0 +1,90 @@
+/*
+ * App-shell foundations — UI Polish Phase 2.
+ *
+ * Global chrome behaviour only: themed page background, safe-area
+ * clearance, tap feel, and the fixed docks (update toast). Screen
+ * layout stays in src/index.css and components in components.css; this
+ * file is imported LAST (see main.tsx) so the safe-area longhands
+ * below layer over the base .app-shell padding shorthand instead of
+ * being overridden by it.
+ *
+ * In a regular browser tab the safe-area insets are 0, so everything
+ * here is a no-op until the app runs standalone on a notched phone —
+ * that is where it earns its keep (audit F-07).
+ */
+
+:root {
+  /* Live keyboard inset, maintained by useVisualViewportInset
+     (src/ui/useVisualViewportInset.ts) from the visualViewport API.
+     Docked bars add it to their bottom offset so they sit directly
+     above the on-screen keyboard (Phase 3 uses it for Log Stop). */
+  --keyboard-inset: 0px;
+
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  /* Stop iOS Safari from auto-inflating text in landscape. */
+  -webkit-text-size-adjust: 100%;
+}
+
+html,
+body {
+  /* The page background is the design-token background in both
+     schemes (tokens.css flips the custom property), so overscroll,
+     the standalone letterbox and the first paint all match the app —
+     no white flash, especially on a dark-mode launch (F-16). */
+  background: var(--bg);
+}
+
+body {
+  /* The shell never rubber-bands behind its fixed bars. */
+  overscroll-behavior: none;
+}
+
+/* Remove the 300 ms tap delay on anything interactive. */
+a,
+button,
+input,
+select,
+textarea,
+summary,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* Standalone clearance: base padding (24px top / 48px bottom from
+   index.css) plus the notch / status-bar and Home-bar insets. */
+.app-shell {
+  padding-top: calc(24px + env(safe-area-inset-top));
+  padding-bottom: calc(48px + env(safe-area-inset-bottom));
+}
+
+/* Utilities for fixed or sticky chrome that Phase 3/4 docks. */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Dock for the "update available" toast (src/ui/UpdateToast.tsx):
+   same footprint as the Undo bar, lifted by the safe area and the
+   keyboard inset. Transitions are fade/transform only, and the
+   reduced-motion query below stills them. */
+.update-toast-dock {
+  bottom: calc(16px + env(safe-area-inset-bottom) + var(--keyboard-inset));
+  left: 50%;
+  max-width: 398px;
+  position: fixed;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  z-index: var(--z-toast);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .update-toast-dock {
+    transition: bottom var(--dur) var(--ease-out);
+  }
+}

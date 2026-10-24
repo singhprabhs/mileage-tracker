@@ -57,12 +57,48 @@ def maskable_icon(size: int) -> Image.Image:
     return img
 
 
+def apple_touch_icon(size: int = 180) -> Image.Image:
+    """Home Screen icon for iOS: full-bleed and opaque (no rounded
+    corners, no transparency — iOS masks the corners itself and fills
+    any transparency with black). Same artwork as the maskable icon."""
+    return maskable_icon(size)
+
+
+# Startup (splash) images, UI Polish Phase 2: flat design-token
+# background (--bg light/dark) with the app icon centred, so launching
+# from the Home Screen never flashes white. (pixel size, css size, dpr)
+STARTUP_SIZES = [
+    (1170, 2532),  # 390x844 @3 — iPhone 13/14/15
+    (1290, 2796),  # 430x932 @3 — iPhone Pro Max
+    (750, 1334),  # 375x667 @2 — iPhone SE
+]
+BG_LIGHT = (246, 247, 249, 255)  # #f6f7f9 (--bg, light)
+BG_DARK = (14, 17, 22, 255)  # #0e1116 (--bg, dark)
+
+
+def startup_image(width: int, height: int, dark: bool) -> Image.Image:
+    img = Image.new("RGBA", (width, height), BG_DARK if dark else BG_LIGHT)
+    icon_side = int(min(width, height) * 0.27)
+    icon = standard_icon(512).resize((icon_side, icon_side), Image.LANCZOS)
+    img.alpha_composite(icon, ((width - icon_side) // 2, (height - icon_side) // 2))
+    return img
+
+
 def main() -> None:
     PUBLIC.mkdir(parents=True, exist_ok=True)
     standard_icon(192).save(PUBLIC / "pwa-192x192.png")
     standard_icon(512).save(PUBLIC / "pwa-512x512.png")
     maskable_icon(512).save(PUBLIC / "pwa-maskable-512x512.png")
-    print("wrote pwa-192x192.png, pwa-512x512.png, pwa-maskable-512x512.png")
+    apple_touch_icon(180).save(PUBLIC / "apple-touch-icon.png", optimize=True)
+    names = ["pwa-192x192.png", "pwa-512x512.png", "pwa-maskable-512x512.png", "apple-touch-icon.png"]
+    for width, height in STARTUP_SIZES:
+        for dark in (False, True):
+            name = f"splash-{width}x{height}{'-dark' if dark else ''}.png"
+            startup_image(width, height, dark).convert("RGB").save(
+                PUBLIC / name, optimize=True
+            )
+            names.append(name)
+    print("wrote " + ", ".join(names))
 
 
 if __name__ == "__main__":

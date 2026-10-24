@@ -1,0 +1,213 @@
+/*
+ * Design tokens — UI Polish Phase 1.
+ *
+ * This file only DEFINES custom properties. It applies nothing to any
+ * element, so existing screens (styled by src/index.css) are visually
+ * unaffected until later phases adopt these tokens screen by screen.
+ * New shared components (src/components/) are styled exclusively from
+ * these tokens — no hard-coded colours or sizes there.
+ *
+ * Colour values are the polish brief's table, verified pair-by-pair
+ * with a WCAG contrast computation (light / dark):
+ *   text on background 16.65 / 17.01 · text on surface 17.85 / 15.53
+ *   muted on background 5.58 / 7.43 · muted on surface 5.98 / 6.79
+ *   accent on surface 6.16 / 6.17 · on-accent on accent 6.16 / 6.76
+ *   success on surface 5.26 / 7.79 · warning on surface 5.02 / 8.37
+ *   danger on surface 5.62 / 6.22 · semantic text on its soft tint
+ *   ≥ 4.50 in both themes (soft tints are 8% light / 14% dark blends).
+ * Every text pair passes WCAG AA (≥ 4.5:1).
+ *
+ * Border deviation (DECISIONS.md): the brief's --border measures only
+ * 1.25:1 (light) / 1.42:1 (dark) — fine for decorative hairlines, but
+ * WCAG 2.2 needs ≥ 3:1 for boundaries that carry meaning. Inputs and
+ * interactive boundaries therefore use --input-border, a stronger
+ * slate measuring 4.09:1 / 3.81:1 (light, on surface / background)
+ * and 3.78:1 / 4.14:1 (dark). The brief's border token is kept for
+ * decorative separators only.
+ *
+ * Theming: :root follows prefers-color-scheme. A `data-theme="light"`
+ * or `data-theme="dark"` attribute on any element (used by the
+ * styleguide, and available to a future theme setting) forces the
+ * scheme for that subtree and wins over the media query.
+ */
+
+/* ---------- Light (default) ---------- */
+:root {
+  color-scheme: light;
+
+  /* Colour */
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --text: #0f172a;
+  --muted: #5b6472;
+  --border: #e3e6eb; /* decorative hairlines only — 1.25:1 */
+  --input-border: #767e8d; /* inputs & interactive boundaries — ≥3:1 */
+  --accent: #2457d6;
+  --on-accent: #ffffff;
+  --accent-soft: #edf2fc;
+  --success: #1e7b4d;
+  --success-soft: #edf4f1;
+  --warning: #b45309;
+  --warning-soft: #faf4ee;
+  --danger: #c62828;
+  --on-danger: #ffffff;
+  --danger-soft: #faeeee;
+  --neutral-soft: #ececee;
+  --focus: #2457d6;
+  --backdrop: rgb(15 23 42 / 0.45);
+  --toast-bg: #0f172a;
+  --toast-text: #f1f3f6;
+  --toast-action: #6c97ff;
+
+  /* Depth: soft shadow in light mode (dark uses a border instead). */
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.05), 0 4px 16px rgb(15 23 42 / 0.06);
+  --shadow-sheet: 0 -8px 32px rgb(15 23 42 / 0.16);
+  --shadow-pop: 0 8px 28px rgb(15 23 42 / 0.2);
+
+  /* Typography */
+  --font: -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fs-caption: 12px;
+  --fs-small: 14px;
+  --fs-body: 16px;
+  --fs-title3: 20px;
+  --fs-title2: 24px;
+  --fs-title1: 32px;
+  --fs-display: 40px;
+  --fw-regular: 400;
+  --fw-semibold: 600;
+  --lh-tight: 1.15;
+  --lh-body: 1.45;
+
+  /* Spacing (4 px grid) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --screen-pad: 16px;
+
+  /* Shape */
+  --r-card: 12px;
+  --r-input: 12px;
+  --r-sheet: 16px;
+  --r-pill: 999px;
+
+  /* Sizes */
+  --target: 48px;
+  --primary-h: 56px;
+
+  /* Motion */
+  --dur-press: 100ms;
+  --dur: 250ms;
+  --dur-slow: 300ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Layers */
+  --z-sheet: 40;
+  --z-dialog: 45;
+  --z-toast: 50;
+}
+
+/* ---------- Dark (system) ---------- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --bg: #0e1116;
+    --surface: #171b22;
+    --text: #f1f3f6;
+    --muted: #9aa3b2;
+    --border: #2a303a; /* decorative hairlines only — 1.42:1 */
+    --input-border: #71767e; /* ≥3:1 on surface and background */
+    --accent: #6c97ff;
+    --on-accent: #0e1116;
+    --accent-soft: #232c41;
+    --success: #4cc38a;
+    --success-soft: #1e3331;
+    --warning: #f0a54a;
+    --warning-soft: #352e28;
+    --danger: #ff6b6b;
+    --on-danger: #0e1116;
+    --danger-soft: #37262c;
+    --neutral-soft: #282c33;
+    --focus: #6c97ff;
+    --backdrop: rgb(0 0 0 / 0.55);
+    --toast-bg: #f1f3f6;
+    --toast-text: #0f172a;
+    --toast-action: #2457d6;
+
+    --shadow-card: none;
+    --shadow-sheet: none;
+    --shadow-pop: none;
+  }
+}
+
+/* ---------- Forced schemes (styleguide previews / future setting) --- */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --text: #0f172a;
+  --muted: #5b6472;
+  --border: #e3e6eb;
+  --input-border: #767e8d;
+  --accent: #2457d6;
+  --on-accent: #ffffff;
+  --accent-soft: #edf2fc;
+  --success: #1e7b4d;
+  --success-soft: #edf4f1;
+  --warning: #b45309;
+  --warning-soft: #faf4ee;
+  --danger: #c62828;
+  --on-danger: #ffffff;
+  --danger-soft: #faeeee;
+  --neutral-soft: #ececee;
+  --focus: #2457d6;
+  --backdrop: rgb(15 23 42 / 0.45);
+  --toast-bg: #0f172a;
+  --toast-text: #f1f3f6;
+  --toast-action: #6c97ff;
+
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.05), 0 4px 16px rgb(15 23 42 / 0.06);
+  --shadow-sheet: 0 -8px 32px rgb(15 23 42 / 0.16);
+  --shadow-pop: 0 8px 28px rgb(15 23 42 / 0.2);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0e1116;
+  --surface: #171b22;
+  --text: #f1f3f6;
+  --muted: #9aa3b2;
+  --border: #2a303a;
+  --input-border: #71767e;
+  --accent: #6c97ff;
+  --on-accent: #0e1116;
+  --accent-soft: #232c41;
+  --success: #4cc38a;
+  --success-soft: #1e3331;
+  --warning: #f0a54a;
+  --warning-soft: #352e28;
+  --danger: #ff6b6b;
+  --on-danger: #0e1116;
+  --danger-soft: #37262c;
+  --neutral-soft: #282c33;
+  --focus: #6c97ff;
+  --backdrop: rgb(0 0 0 / 0.55);
+  --toast-bg: #f1f3f6;
+  --toast-text: #0f172a;
+  --toast-action: #2457d6;
+
+  --shadow-card: none;
+  --shadow-sheet: none;
+  --shadow-pop: none;
+}
+
+/* Tabular figures for odometer readings, distances, money and totals,
+   so digits never shift width as values change. */
+.ds-num {
+  font-variant-numeric: tabular-nums;
+}
