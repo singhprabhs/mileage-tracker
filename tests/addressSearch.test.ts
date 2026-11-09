@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  BC_FILTER_RECT,
   createGeoapifySearcher,
   MIN_QUERY_LENGTH,
   type FetchFn,
@@ -49,13 +50,80 @@ describe("Geoapify address search", () => {
       place_id: "geo-place-1",
       lat: 49.286,
       lng: -123.112,
+      nameIsAddress: false,
     });
     // A feature without a name falls back to the address's first line.
     expect(result.results[1]?.name).toBe("789 W Pender St");
+    expect(result.results[1]?.nameIsAddress).toBe(true);
     expect(fetchFn).toHaveBeenCalledTimes(1);
     const url = fetchFn.mock.calls[0]?.[0] ?? "";
     expect(url).toContain("https://api.geoapify.com/v1/geocode/autocomplete");
     expect(url).toContain("text=789%20W%20Pender");
+  });
+
+  it("restricts results to British Columbia and asks for English", async () => {
+    const fetchFn = okFetch();
+    const searcher = createGeoapifySearcher({ apiKey: "test-key", fetchFn });
+    await searcher.search("Paris");
+    const url = fetchFn.mock.calls[0]?.[0] ?? "";
+    expect(url).toContain(`filter=${encodeURIComponent(BC_FILTER_RECT)}`);
+    expect(url).toContain("lang=en");
+    expect(BC_FILTER_RECT).toBe("rect:-139.06,48.30,-114.03,60.00");
+  });
+
+  it("flags a name that is only the street address, not a company name", async () => {
+    const fetchFn = okFetch({
+      features: [
+        {
+          properties: {
+            name: "789 W Pender St",
+            address_line1: "789 W Pender St",
+            formatted: "789 W Pender St, Vancouver, BC, Canada",
+            place_id: "geo-street",
+          },
+        },
+        {
+          properties: {
+            name: "Agat Laboratories",
+            address_line1: "3681 E 1st Ave",
+            formatted: "3681 E 1st Ave, Vancouver, BC, Canada",
+            place_id: "geo-poi",
+          },
+        },
+      ],
+    });
+    const searcher = createGeoapifySearcher({ apiKey: "test-key", fetchFn });
+    const result = await searcher.search("Pender");
+    if (result.status !== "ok") throw new Error("unavailable");
+    expect(result.results[0]?.nameIsAddress).toBe(true);
+    expect(result.results[1]?.nameIsAddress).toBe(false);
+  });
+
+  it("re-ranks by proximity when a device location is given, and caches per location", async () => {
+    const fetchFn = okFetch();
+    const searcher = createGeoapifySearcher({ apiKey: "test-key", fetchFn });
+    const near = { lat: 49.286, lng: -123.112 };
+    const far = { lat: 48.428, lng: -123.365 };
+    await searcher.search("Pender", near);
+    const url = fetchFn.mock.calls[0]?.[0] ?? "";
+    expect(url).toContain("bias=proximity:-123.112%2C49.286");
+    await searcher.search("Pender", near);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    await searcher.search("Pender", far);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("reverse-geocodes a coordinate to the nearest named place", async () => {
+    const fetchFn = okFetch();
+    const searcher = createGeoapifySearcher({ apiKey: "test-key", fetchFn });
+    const result = await searcher.reverseGeocode(49.286, -123.112);
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("unavailable");
+    expect(result.results[0]?.name).toBe("Dsk Law");
+    const url = fetchFn.mock.calls[0]?.[0] ?? "";
+    expect(url).toContain("https://api.geoapify.com/v1/geocode/reverse");
+    expect(url).toContain("lat=49.286");
+    expect(url).toContain("lon=-123.112");
   });
 
   it("does not query under the minimum length", async () => {

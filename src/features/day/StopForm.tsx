@@ -14,8 +14,11 @@ import {
   ADDRESS_SEARCH_ATTRIBUTION,
   getAddressSearcher,
   MIN_QUERY_LENGTH,
+  type GeoBias,
   type PlaceSuggestion,
 } from "../stops/addressSearch";
+import { getDeviceLocation } from "../stops/geolocation";
+import { filterRecentStops } from "./recentStops";
 import {
   Banner,
   Button,
@@ -82,11 +85,7 @@ interface StopFormProps {
 }
 
 /** The domain's warnings in plain words (computations unchanged). */
-function plainWarning(
-  warning: LegWarning,
-  reading: number,
-  previousReading: number,
-): string {
+function plainWarning(warning: LegWarning, reading: number, previousReading: number): string {
   const distance = reading - previousReading;
   switch (warning.code) {
     case "negative-distance":
@@ -148,6 +147,15 @@ export default function StopForm({
   const [searchState, setSearchState] = useState<"loading" | "unavailable" | null>(
     !fixedDestination && !searcher.configured ? "unavailable" : null,
   );
+  /** Device location from "Use my location": re-ranks search by proximity. */
+  const [bias, setBias] = useState<GeoBias | null>(null);
+  const [geoState, setGeoState] = useState<
+    "idle" | "locating" | "ready" | "denied" | "unavailable"
+  >("idle");
+  /** Nearest named place to the device, offered as a pickable row. */
+  const [currentPlace, setCurrentPlace] = useState<PlaceSuggestion | null>(null);
+  /** The picked suggestion's name was only the street address. */
+  const [nameNeedsCheck, setNameNeedsCheck] = useState(false);
   const [name, setName] = useState(
     fixedDestination?.name ?? initialDraft?.name ?? initialDestination?.name ?? "",
   );
@@ -187,7 +195,7 @@ export default function StopForm({
     }
     setSearchState("loading");
     let cancelled = false;
-    void searcher.searchDebounced(query).then((result) => {
+    void searcher.searchDebounced(query, bias).then((result) => {
       if (cancelled) return;
       if (result.status === "ok") {
         setSuggestions(result.results);
@@ -201,7 +209,28 @@ export default function StopForm({
     return () => {
       cancelled = true;
     };
-  }, [query, searcher, fixedDestination]);
+  }, [query, searcher, fixedDestination, bias]);
+
+  async function handleUseMyLocation() {
+    if (geoState === "locating") return;
+    setGeoState("locating");
+    setCurrentPlace(null);
+    const located = await getDeviceLocation();
+    if (located.status === "denied") {
+      setGeoState("denied");
+      return;
+    }
+    if (located.status !== "ok") {
+      setGeoState("unavailable");
+      return;
+    }
+    setBias(located.position);
+    setGeoState("ready");
+    const nearby = await searcher.reverseGeocode(located.position.lat, located.position.lng);
+    if (nearby.status === "ok" && nearby.results[0]) {
+      setCurrentPlace(nearby.results[0]);
+    }
+  }
 
   // F-04: report every in-progress change to the draft owner.
   useEffect(() => {
@@ -247,16 +276,10 @@ export default function StopForm({
 
   const visibleWarnings = warnings.filter((warning) => !dismissedWarnings.has(warning.code));
 
-  const filteredRecents = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const all = recentStops.slice(0, 8);
-    if (needle === "") return all;
-    return all.filter(
-      (stop) =>
-        stop.name.toLowerCase().includes(needle) ||
-        stop.address.toLowerCase().includes(needle),
-    );
-  }, [recentStops, query]);
+  const filteredRecents = useMemo(
+    () => filterRecentStops(recentStops, query),
+    [recentStops, query],
+  );
 
   function chooseSuggestion(suggestion: PlaceSuggestion) {
     setName(suggestion.name);
@@ -264,9 +287,20 @@ export default function StopForm({
     setPlace({ place_id: suggestion.place_id, lat: suggestion.lat, lng: suggestion.lng });
     setSuggestions([]);
     setQuery("");
-    setEditingPlace(false);
+    setCurrentPlace(null);
     setStep(2);
-    requestAnimationFrame(() => focusField("stop-odometer"));
+    if (suggestion.nameIsAddress) {
+      // The search only found the street address, not the company —
+      // open the editor on the name so the customer name is typed
+      // and verified before anything is saved.
+      setNameNeedsCheck(true);
+      setEditingPlace(true);
+      requestAnimationFrame(() => focusField("stop-name"));
+    } else {
+      setNameNeedsCheck(false);
+      setEditingPlace(false);
+      requestAnimationFrame(() => focusField("stop-odometer"));
+    }
   }
 
   function chooseRecent(stop: LocationRecord) {
@@ -275,12 +309,16 @@ export default function StopForm({
     setDestType(stop.type);
     setPlace({ place_id: stop.place_id, lat: stop.lat, lng: stop.lng });
     setSuggestions([]);
+    setQuery("");
+    setCurrentPlace(null);
+    setNameNeedsCheck(false);
     setEditingPlace(false);
     setStep(2);
     requestAnimationFrame(() => focusField("stop-odometer"));
   }
 
   function typeManually() {
+    setNameNeedsCheck(false);
     setEditingPlace(true);
     setStep(2);
     requestAnimationFrame(() => focusField("stop-name"));
@@ -349,6 +387,47 @@ export default function StopForm({
             }}
           />
           <p className="search-attribution">{ADDRESS_SEARCH_ATTRIBUTION}</p>
+
+          {searcher.configured ? (
+            <div className="geo-row">
+              <Button
+                variant="secondary"
+                onClick={() => void handleUseMyLocation()}
+                disabled={geoState === "locating"}
+              >
+                {geoState === "locating" ? "Finding your location…" : "Use my location"}
+              </Button>
+              {geoState === "ready" ? (
+                <p className="search-attribution">
+                  Searching near where you are now. Suggestions are still limited to BC.
+                </p>
+              ) : null}
+              {geoState === "denied" ? (
+                <p className="search-attribution">
+                  Location is off — turn it on in your iPhone settings to use this.
+                </p>
+              ) : null}
+              {geoState === "unavailable" ? (
+                <p className="search-attribution">
+                  Couldn&apos;t get your location right now — search still works.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {currentPlace ? (
+            <section aria-label="Current location">
+              <SectionHeader>Current location</SectionHeader>
+              <div className="result-list">
+                <ListRow
+                  icon={<MapPinIcon width={20} height={20} />}
+                  title={currentPlace.name}
+                  subtitle={currentPlace.address}
+                  onClick={() => chooseSuggestion(currentPlace)}
+                />
+              </div>
+            </section>
+          ) : null}
 
           {searchState === "unavailable" ? (
             <Banner kind="warning">
@@ -442,7 +521,12 @@ export default function StopForm({
                 <div className="place-editor">
                   <TextField
                     id="stop-name"
-                    label="Place name"
+                    label={destType === "customer" ? "Customer name" : "Place name"}
+                    hint={
+                      nameNeedsCheck
+                        ? "The search only found the street address — type the customer name."
+                        : undefined
+                    }
                     autoComplete="off"
                     value={name}
                     onChange={(event) => setName(event.target.value)}
@@ -463,7 +547,13 @@ export default function StopForm({
                       { value: "office", label: "The Office" },
                     ]}
                   />
-                  <Button variant="text" onClick={() => setEditingPlace(false)}>
+                  <Button
+                    variant="text"
+                    onClick={() => {
+                      setEditingPlace(false);
+                      setNameNeedsCheck(false);
+                    }}
+                  >
                     Done
                   </Button>
                 </div>
@@ -513,9 +603,7 @@ export default function StopForm({
                 </Button>
                 <Button
                   variant="text"
-                  onClick={() =>
-                    setDismissedWarnings((prev) => new Set(prev).add(warning.code))
-                  }
+                  onClick={() => setDismissedWarnings((prev) => new Set(prev).add(warning.code))}
                 >
                   Keep
                 </Button>
