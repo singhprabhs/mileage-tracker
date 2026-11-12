@@ -17,7 +17,8 @@ import {
   type GeoBias,
   type PlaceSuggestion,
 } from "../stops/addressSearch";
-import { getDeviceLocation } from "../stops/geolocation";
+import { deniedLocationMessage, getDeviceLocation } from "../stops/geolocation";
+import { isStandaloneDisplay } from "./installState";
 import { filterRecentStops } from "./recentStops";
 import {
   Banner,
@@ -404,7 +405,10 @@ export default function StopForm({
               ) : null}
               {geoState === "denied" ? (
                 <p className="search-attribution">
-                  Location is off — turn it on in your iPhone settings to use this.
+                  {deniedLocationMessage({
+                    standalone: isStandaloneDisplay(),
+                    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+                  })}
                 </p>
               ) : null}
               {geoState === "unavailable" ? (

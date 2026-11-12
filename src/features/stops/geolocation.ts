@@ -26,6 +26,27 @@ export interface GeolocationLike {
   ): void;
 }
 
+/**
+ * The denied-location message for the container the app is running in.
+ * iOS lists a separate Location Services entry per container, so the
+ * Safari-only path was wrong in the Home Screen app (its entry is the
+ * app name) and in Chrome (its entry is Chrome): the app names the
+ * entry that matches how it was opened, using the standalone check
+ * from installState and Chrome-on-iOS's CriOS user-agent token.
+ */
+export function deniedLocationMessage(options: {
+  standalone: boolean;
+  userAgent?: string;
+}): string {
+  if (options.standalone) {
+    return "Location is off for Mileage Tracker. Turn it on in iPhone Settings → Privacy & Security → Location Services → Mileage Tracker → While Using the App, then try again.";
+  }
+  if (/CriOS/i.test(options.userAgent ?? "")) {
+    return "Location is off for Chrome. Turn it on in iPhone Settings → Privacy & Security → Location Services → Chrome → While Using the App, then try again.";
+  }
+  return "Location is off for Safari Websites. Turn it on in iPhone Settings → Privacy & Security → Location Services → Safari Websites → While Using the App, then try again.";
+}
+
 const POSITION_TIMEOUT_MS = 10000;
 
 /** Geolocation error code 1 (PERMISSION_DENIED) per the W3C spec. */
